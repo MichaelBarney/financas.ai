@@ -16,6 +16,7 @@ Sistema de gestão financeira com processamento inteligente de extratos bancári
 - **Processamento Inteligente**: Análise de extratos no servidor com a Tela AI
 - **Suporte a PDFs Criptografados**: Decriptação automática de PDFs protegidos por senha
 - **Dashboard Financeiro**: Resumo com totais e estatísticas em cards informativos
+- **Tabela de Transações**: Visualização completa de transações com filtros por mês/ano e tipo de pessoa
 - **Navegação Intuitiva**: Sidebar com navegação clara entre seções
 - **Transações Internacionais**: Marcação especial para compras no exterior
 - **Armazenamento em Arquivos**: Dados organizados em sistema de arquivos do servidor
@@ -50,6 +51,7 @@ pnpm build
 │   │   ├── app-header.vue     # Cabeçalho da aplicação
 │   │   └── sidebar.vue        # Barra lateral de navegação
 │   ├── ExtractUpload.vue      # Upload de extratos
+│   ├── TransactionTable.vue   # Tabela de transações com filtros
 │   └── TransactionsList.vue   # Lista de transações
 ├── composables/
 │   ├── useFinanceStore.ts     # Store de dados financeiros
@@ -122,7 +124,7 @@ NODE_ENV=development
 ## 🏦 Como Usar
 
 ### Navegação
-- **Dashboard**: Visão geral com estatísticas e ações rápidas
+- **Dashboard**: Visão geral com estatísticas, ações rápidas e tabela completa de transações
 - **Bancos**: Gerencie suas instituições bancárias
 - **Extratos**: Faça upload e visualize extratos processados
 - **Cartões**: Acompanhe seus cartões de crédito
@@ -184,6 +186,47 @@ Os dados são automaticamente agrupados por:
 - Ano e mês
 - Banco
 - Com cálculos de totais de entrada, saída e saldo
+
+## 📊 Tabela de Transações
+
+O dashboard principal agora inclui uma tabela completa de transações com recursos avançados de filtragem:
+
+### Funcionalidades da Tabela:
+- **Seleção de Período**: Filtros por mês e ano com dropdowns intuitivos
+- **Filtro por Tipo de Pessoa**: Checkboxes para filtrar transações por:
+  - **Principal**: Titular principal do sistema
+  - **Dependente**: Familiares e dependentes
+  - **Externo**: Terceiros e outras pessoas
+- **Ordenação Cronológica**: Transações ordenadas do mais antigo (topo) para o mais recente (base)
+- **Informações Completas**: Cada transação exibe:
+  - Data formatada
+  - Descrição da transação
+  - Banco da transação
+  - Cartão utilizado (quando aplicável)
+  - Pessoa responsável
+  - Tipo (Entrada/Saída)
+  - Valor com formatação de moeda
+- **Indicadores Visuais**: 
+  - Badges coloridos para tipo de transação (verde=entrada, vermelho=saída)
+  - Indicador de compra internacional
+  - Formatação de cartão com últimos 4 dígitos
+- **Resumo Financeiro**: Totais de entradas, saídas e saldo para o período selecionado
+- **Estado Vazio**: Mensagem informativa quando não há transações para o período
+
+### Como Usar:
+1. **Selecionar Período**: Use os dropdowns de ano e mês para escolher o período desejado
+2. **Filtrar por Pessoa**: Marque/desmarque os checkboxes para mostrar apenas transações de certos tipos de pessoa
+3. **Visualizar Dados**: A tabela se atualiza automaticamente com as transações filtradas
+4. **Analisar Resumo**: Veja os totais e saldo no rodapé da tabela
+
+### Dados Exibidos:
+- **Data**: Formato DD/MM/AAAA
+- **Descrição**: Nome da transação + conta (quando disponível)
+- **Banco**: Nome da instituição bancária
+- **Cartão**: Últimos 4 dígitos com ícone de cartão
+- **Pessoa**: Nome da pessoa responsável pela transação
+- **Tipo**: Badge indicando entrada ou saída
+- **Valor**: Quantia formatada em reais com sinal (+/-)
 
 ## 💳 Gestão de Cartões de Crédito
 

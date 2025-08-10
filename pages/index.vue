@@ -48,6 +48,8 @@
         </div>
       </div>
     </div>
+    <!-- Transaction Table -->
+    <TransactionTable class="mb-8" />
     <!-- Recent Activity -->
     <div v-if="recentExtracts.length > 0" class="bg-white border border-gray-200 rounded-lg">
       <div class="px-6 py-4 border-b border-gray-200">
