@@ -30,33 +30,39 @@
       <!-- People Type Filter -->
       <div class="mt-4 flex flex-wrap gap-3">
         <label class="flex items-center gap-2">
-          <input 
-            type="checkbox" 
-            v-model="selectedPeopleTypes" 
-            value="Principal"
-            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          >
+          <TelaCheckbox 
+            :model-value="selectedPeopleTypes.includes('Principal')"
+            @update:model-value="(checked) => togglePeopleType('Principal', checked)"
+            size="md"
+          />
           <span class="text-sm text-gray-700">Principal</span>
         </label>
         
         <label class="flex items-center gap-2">
-          <input 
-            type="checkbox" 
-            v-model="selectedPeopleTypes" 
-            value="Dependente"
-            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          >
+          <TelaCheckbox 
+            :model-value="selectedPeopleTypes.includes('Dependente')"
+            @update:model-value="(checked) => togglePeopleType('Dependente', checked)"
+            size="md"
+          />
           <span class="text-sm text-gray-700">Dependente</span>
         </label>
         
-        <label class="text-sm text-gray-700">
-          <input 
-            type="checkbox" 
-            v-model="selectedPeopleTypes" 
-            value="Externo"
-            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          >
+        <label class="flex items-center gap-2">
+          <TelaCheckbox 
+            :model-value="selectedPeopleTypes.includes('Externo')"
+            @update:model-value="(checked) => togglePeopleType('Externo', checked)"
+            size="md"
+          />
           <span class="text-sm text-gray-700">Externo</span>
+        </label>
+
+        <label class="flex items-center gap-2">
+          <TelaCheckbox 
+            :model-value="selectedPeopleTypes.includes('Outro')"
+            @update:model-value="(checked) => togglePeopleType('Outro', checked)"
+            size="md"
+          />
+          <span class="text-sm text-gray-700">Outro</span>
         </label>
       </div>
     </div>
@@ -119,7 +125,15 @@
               <span v-else class="text-gray-400">-</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-              {{ getPersonName(transaction.finalCartao) || '-' }}
+              <span v-if="getPersonName(transaction.finalCartao)" class="text-gray-900">
+                {{ getPersonName(transaction.finalCartao) }}
+              </span>
+              <span v-else-if="!transaction.finalCartao || transaction.finalCartao === 'N/A'" class="text-gray-500 italic">
+                Sem cartão
+              </span>
+              <span v-else class="text-gray-500 italic">
+                Cartão não salvo
+              </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
               <div class="flex items-center gap-2">
@@ -190,6 +204,7 @@
 
 <script setup lang="ts">
 import type { Transaction, Person, Card } from '~/types'
+import { nextTick } from 'vue'
 
 interface TransactionWithMetadata extends Transaction {
   bankId: string
@@ -202,16 +217,88 @@ const { extracts, people, cards } = useFinanceStore()
 // Month/Year selection
 const currentDate = new Date()
 const selectedYear = ref(currentDate.getFullYear())
-const selectedMonth = ref(currentDate.getMonth() + 1)
+const selectedMonth = ref(currentDate.getMonth() + 1) // Default to current month
 
 // People type filtering
-const selectedPeopleTypes = ref<string[]>(['Principal', 'Dependente', 'Externo'])
+const selectedPeopleTypes = ref<string[]>(['Principal', 'Dependente', 'Externo', 'Outro'])
+
+// Storage keys for remembering user preferences
+const STORAGE_KEYS = {
+  SELECTED_YEAR: 'financas-ai-selected-year',
+  SELECTED_MONTH: 'financas-ai-selected-month',
+  SELECTED_PEOPLE_TYPES: 'financas-ai-selected-people-types'
+}
+
+// Functions to save and load user preferences
+function saveUserPreferences() {
+  if (process.client) {
+    localStorage.setItem(STORAGE_KEYS.SELECTED_YEAR, selectedYear.value.toString())
+    localStorage.setItem(STORAGE_KEYS.SELECTED_MONTH, selectedMonth.value.toString())
+    localStorage.setItem(STORAGE_KEYS.SELECTED_PEOPLE_TYPES, JSON.stringify(selectedPeopleTypes.value))
+  }
+}
+
+function loadUserPreferences() {
+  if (process.client) {
+    // Load year preference
+    const savedYear = localStorage.getItem(STORAGE_KEYS.SELECTED_YEAR)
+    if (savedYear) {
+      const yearNum = Number.parseInt(savedYear)
+      if (yearNum && availableYears.value.includes(yearNum)) {
+        selectedYear.value = yearNum
+      }
+    }
+    
+    // Load month preference
+    const savedMonth = localStorage.getItem(STORAGE_KEYS.SELECTED_MONTH)
+    if (savedMonth) {
+      const monthNum = Number.parseInt(savedMonth)
+      if (monthNum && monthNum >= 1 && monthNum <= 12) {
+        // Check if month is available for selected year
+        const availableMonthsForYear = Array.from(availableMonths.value)
+          .filter(monthKey => {
+            const year = monthKey.split('-')[0]
+            return year && monthKey.startsWith(year)
+          })
+          .map(monthKey => {
+            const month = monthKey.split('-')[1]
+            return month ? Number.parseInt(month) : 0
+          })
+          .filter(month => !isNaN(month))
+        
+        if (availableMonthsForYear.includes(monthNum)) {
+          selectedMonth.value = monthNum
+        }
+      }
+    }
+    
+    // Load people types preference
+    const savedPeopleTypes = localStorage.getItem(STORAGE_KEYS.SELECTED_PEOPLE_TYPES)
+    if (savedPeopleTypes) {
+      try {
+        const parsedTypes = JSON.parse(savedPeopleTypes)
+        if (Array.isArray(parsedTypes) && parsedTypes.length > 0) {
+          // Validate that all saved types are valid
+          const validTypes = ['Principal', 'Dependente', 'Externo', 'Outro']
+          const filteredTypes = parsedTypes.filter(type => validTypes.includes(type))
+          if (filteredTypes.length > 0) {
+            selectedPeopleTypes.value = filteredTypes
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse saved people types:', e)
+      }
+    }
+  }
+}
 
 // Available months and years
 const availableMonths = computed(() => {
   return extracts.value.reduce((months, extract) => {
     extract.data.transacoes.forEach(transaction => {
       const [day, month, year] = transaction.data.split('/')
+      if (!day || !month || !year) return
+      
       const yearNum = year.length === 2 ? Number.parseInt(`20${year}`) : Number.parseInt(year)
       const monthNum = Number.parseInt(month)
       months.add(`${yearNum}-${monthNum}`)
@@ -224,7 +311,12 @@ const availableYears = computed(() => {
   const years = new Set<number>()
   availableMonths.value.forEach(monthKey => {
     const [year] = monthKey.split('-')
-    years.add(Number.parseInt(year))
+    if (year) {
+      const yearNum = Number.parseInt(year)
+      if (!isNaN(yearNum)) {
+        years.add(yearNum)
+      }
+    }
   })
   return Array.from(years).sort((a, b) => b - a)
 })
@@ -251,13 +343,28 @@ const filteredTransactions = computed(() => {
   extracts.value.forEach(extract => {
     extract.data.transacoes.forEach(transaction => {
       const [day, month, year] = transaction.data.split('/')
+      if (!day || !month || !year) return
+      
       const yearNum = year.length === 2 ? Number.parseInt(`20${year}`) : Number.parseInt(year)
       const monthNum = Number.parseInt(month)
       
       if (yearNum === selectedYear.value && monthNum === selectedMonth.value) {
         // Check if transaction should be shown based on people type filter
         const person = getPersonByCard(transaction.finalCartao)
+        let shouldInclude = false
+        
         if (person && selectedPeopleTypes.value.includes(person.type)) {
+          shouldInclude = true
+        } else if (selectedPeopleTypes.value.includes('Outro')) {
+          // Include transactions without cards or with unsaved cards
+          if (!transaction.finalCartao || 
+              transaction.finalCartao === 'N/A' || 
+              !person) {
+            shouldInclude = true
+          }
+        }
+        
+        if (shouldInclude) {
           transactions.push({
             ...transaction,
             bankId: extract.bankId,
@@ -273,6 +380,9 @@ const filteredTransactions = computed(() => {
   return transactions.sort((a, b) => {
     const [dayA, monthA, yearA] = a.data.split('/')
     const [dayB, monthB, yearB] = b.data.split('/')
+    
+    if (!dayA || !monthA || !yearA || !dayB || !monthB || !yearB) return 0
+    
     const dateA = new Date(Number.parseInt(yearA), Number.parseInt(monthA) - 1, Number.parseInt(dayA))
     const dateB = new Date(Number.parseInt(yearB), Number.parseInt(monthB) - 1, Number.parseInt(dayB))
     return dateA.getTime() - dateB.getTime()
@@ -324,8 +434,23 @@ function getPersonName(finalCartao?: string): string | null {
   return person ? person.name : null
 }
 
+function togglePeopleType(type: string, checked: boolean) {
+  if (checked) {
+    if (!selectedPeopleTypes.value.includes(type)) {
+      selectedPeopleTypes.value.push(type)
+    }
+  } else {
+    const index = selectedPeopleTypes.value.indexOf(type)
+    if (index > -1) {
+      selectedPeopleTypes.value.splice(index, 1)
+    }
+  }
+}
+
 function formatDate(date: string): string {
   const [day, month, year] = date.split('/')
+  if (!day || !month || !year) return date
+  
   const yearNum = year.length === 2 ? Number.parseInt(`20${year}`) : Number.parseInt(year)
   const monthNum = Number.parseInt(month)
   const dayNum = Number.parseInt(day)
@@ -348,24 +473,78 @@ function formatCurrency(value: number): string {
 watch([selectedYear, selectedMonth], () => {
   // Ensure selected month is available for selected year
   const availableMonthsForYear = Array.from(availableMonths.value)
-    .filter(monthKey => monthKey.startsWith(selectedYear.value.toString()))
-    .map(monthKey => Number.parseInt(monthKey.split('-')[1]))
+    .filter(monthKey => {
+      const year = monthKey.split('-')[0]
+      return year && year === selectedYear.value.toString()
+    })
+    .map(monthKey => {
+      const month = monthKey.split('-')[1]
+      return month ? Number.parseInt(month) : 0
+    })
+    .filter(month => !isNaN(month))
   
   if (!availableMonthsForYear.includes(selectedMonth.value)) {
     selectedMonth.value = availableMonthsForYear[0] || 1
   }
+  
+  // Save user preferences when month/year changes
+  saveUserPreferences()
 })
 
-// Initialize with first available month/year
+// Watch for changes in people types filter
+watch(selectedPeopleTypes, () => {
+  // Save user preferences when filter changes
+  saveUserPreferences()
+}, { deep: true })
+
+// Watch for changes in extracts to reload preferences when new data is available
+watch(extracts, () => {
+  // Reload preferences when extracts change (new data available)
+  nextTick(() => {
+    loadUserPreferences()
+  })
+}, { deep: true })
+
+// Initialize with current month/year if available, otherwise first available
 onMounted(() => {
   if (availableYears.value.length > 0) {
-    selectedYear.value = availableYears.value[0]
-    const availableMonthsForYear = Array.from(availableMonths.value)
-      .filter(monthKey => monthKey.startsWith(selectedYear.value.toString()))
-      .map(monthKey => Number.parseInt(monthKey.split('-')[1]))
-    if (availableMonthsForYear.length > 0) {
-      selectedMonth.value = availableMonthsForYear[0]
+    // Load saved user preferences first
+    loadUserPreferences()
+    
+    // If no saved preferences, try to use current year first
+    if (!localStorage.getItem(STORAGE_KEYS.SELECTED_YEAR)) {
+      if (availableYears.value.includes(currentDate.getFullYear())) {
+        selectedYear.value = currentDate.getFullYear()
+      } else {
+        selectedYear.value = availableYears.value[0]
+      }
     }
+    
+    const availableMonthsForYear = Array.from(availableMonths.value)
+      .filter(monthKey => {
+        const year = monthKey.split('-')[0]
+        return year && year === selectedYear.value.toString()
+      })
+      .map(monthKey => {
+        const month = monthKey.split('-')[1]
+        return month ? Number.parseInt(month) : 0
+      })
+      .filter(month => !isNaN(month))
+    
+    if (availableMonthsForYear.length > 0) {
+      // If no saved month preference, try to use current month if available for selected year
+      if (!localStorage.getItem(STORAGE_KEYS.SELECTED_MONTH)) {
+        if (selectedYear.value === currentDate.getFullYear() && 
+            availableMonthsForYear.includes(currentDate.getMonth() + 1)) {
+          selectedMonth.value = currentDate.getMonth() + 1
+        } else {
+          selectedMonth.value = availableMonthsForYear[0] || 1
+        }
+      }
+    }
+    
+    // Save initial preferences
+    saveUserPreferences()
   }
 })
 </script>

@@ -46,6 +46,34 @@ export function useFinanceStore() {
         loadData()
     }
 
+    // Also expose a way to check if data is loaded
+    const ensureDataLoaded = async () => {
+        if (!isLoaded.value) {
+            await loadData()
+        }
+        return isLoaded.value
+    }
+
+    // Get banks with fallback to ensure they're loaded
+    const getBanks = async () => {
+        if (banks.value.length === 0) {
+            await ensureDataLoaded()
+        }
+        // Double-check if banks are still empty after loading
+        if (banks.value.length === 0) {
+            console.warn('[WARN] Banks still empty after loading, trying direct API call')
+            try {
+                const banksData = await $fetch<Bank[]>('/api/banks')
+                banks.value = banksData
+                console.warn('[WARN] Banks loaded directly from API:', banksData.length)
+            }
+            catch (error) {
+                console.error('[ERROR] Failed to load banks directly:', error)
+            }
+        }
+        return banks.value
+    }
+
     const addBank = async (name: string) => {
         try {
             const newBank = await $fetch<Bank>('/api/banks', {
@@ -108,7 +136,16 @@ export function useFinanceStore() {
 
         extracts.value.forEach((extract) => {
             const monthlyTransactions = extract.data.transacoes.filter((transaction) => {
-                const [day, transactionMonth, transactionYear] = transaction.data.split('/')
+                const parts = transaction.data.split('/')
+                if (parts.length < 3) {
+                    return false
+                }
+
+                const [_day, transactionMonth, transactionYear] = parts
+                if (!transactionMonth || !transactionYear) {
+                    return false
+                }
+
                 const yearNum = transactionYear.length === 2
                     ? Number.parseInt(`20${transactionYear}`)
                     : Number.parseInt(transactionYear)
@@ -141,7 +178,16 @@ export function useFinanceStore() {
 
         extracts.value.forEach((extract) => {
             extract.data.transacoes.forEach((transaction) => {
-                const [day, transactionMonth, transactionYear] = transaction.data.split('/')
+                const parts = transaction.data.split('/')
+                if (parts.length < 3) {
+                    return
+                }
+
+                const [_day, transactionMonth, transactionYear] = parts
+                if (!transactionMonth || !transactionYear) {
+                    return
+                }
+
                 const yearNum = transactionYear.length === 2
                     ? Number.parseInt(`20${transactionYear}`)
                     : Number.parseInt(transactionYear)
@@ -166,7 +212,16 @@ export function useFinanceStore() {
 
         extracts.value.forEach((extract) => {
             extract.data.transacoes.forEach((transaction) => {
-                const [day, month, year] = transaction.data.split('/')
+                const parts = transaction.data.split('/')
+                if (parts.length < 3) {
+                    return
+                }
+
+                const [_day, month, year] = parts
+                if (!month || !year) {
+                    return
+                }
+
                 const yearNum = year.length === 2
                     ? Number.parseInt(`20${year}`)
                     : Number.parseInt(year)
@@ -179,11 +234,16 @@ export function useFinanceStore() {
         return Array.from(months)
             .map((monthKey) => {
                 const [year, month] = monthKey.split('-')
+                if (!year || !month) {
+                    return null
+                }
                 return { year: Number.parseInt(year), month: Number.parseInt(month) }
             })
+            .filter((item): item is { year: number; month: number } => item !== null)
             .sort((a, b) => {
-                if (a.year !== b.year)
+                if (a.year !== b.year) {
                     return b.year - a.year // Most recent year first
+                }
                 return b.month - a.month // Most recent month first
             })
     }
@@ -352,5 +412,7 @@ export function useFinanceStore() {
         getTransactionsByMonth,
         getAllAvailableMonths,
         loadData, // Expose loadData for manual refresh
+        ensureDataLoaded, // Expose ensureDataLoaded
+        getBanks, // Expose getBanks
     }
 }

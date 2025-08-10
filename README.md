@@ -191,12 +191,22 @@ Os dados são automaticamente agrupados por:
 
 O dashboard principal agora inclui uma tabela completa de transações com recursos avançados de filtragem:
 
+### 🆕 Melhorias Recentes:
+- **Mês Padrão Inteligente**: A tabela agora inicializa automaticamente com o mês atual
+- **Filtro "Outro"**: Novo filtro para visualizar transações sem cartão ou com cartões não salvos
+- **Componentes TelaCheckbox**: Interface moderna usando componentes Tela para os filtros
+- **Exibição Melhorada**: Transações "Outro" mostram claramente "Sem cartão" ou "Cartão não salvo"
+- **💾 Memória de Preferências**: O sistema agora lembra automaticamente suas configurações de filtro e período selecionado
+
 ### Funcionalidades da Tabela:
 - **Seleção de Período**: Filtros por mês e ano com dropdowns intuitivos
-- **Filtro por Tipo de Pessoa**: Checkboxes para filtrar transações por:
+  - **Mês Padrão**: Inicializa automaticamente com o mês atual
+  - **Ano Padrão**: Prioriza o ano atual quando disponível
+- **Filtro por Tipo de Pessoa**: Checkboxes TelaCheckbox para filtrar transações por:
   - **Principal**: Titular principal do sistema
   - **Dependente**: Familiares e dependentes
   - **Externo**: Terceiros e outras pessoas
+  - **Outro**: Transações sem cartão ou com cartões não salvos
 - **Ordenação Cronológica**: Transações ordenadas do mais antigo (topo) para o mais recente (base)
 - **Informações Completas**: Cada transação exibe:
   - Data formatada
@@ -215,16 +225,28 @@ O dashboard principal agora inclui uma tabela completa de transações com recur
 
 ### Como Usar:
 1. **Selecionar Período**: Use os dropdowns de ano e mês para escolher o período desejado
-2. **Filtrar por Pessoa**: Marque/desmarque os checkboxes para mostrar apenas transações de certos tipos de pessoa
+   - A tabela inicia automaticamente no mês atual
+2. **Filtrar por Pessoa**: Marque/desmarque os checkboxes TelaCheckbox para mostrar transações por tipo:
+   - **Principal/Dependente/Externo**: Transações de pessoas cadastradas
+   - **Outro**: Transações sem cartão ou com cartões não salvos
 3. **Visualizar Dados**: A tabela se atualiza automaticamente com as transações filtradas
 4. **Analisar Resumo**: Veja os totais e saldo no rodapé da tabela
+
+### 💾 Memória de Preferências:
+O sistema agora lembra automaticamente suas configurações:
+- **Período Selecionado**: Ano e mês escolhidos são salvos e restaurados na próxima visita
+- **Filtros Ativos**: Os tipos de pessoa selecionados são mantidos entre sessões
+- **Persistência Local**: As configurações são salvas no navegador usando localStorage
+- **Sincronização Automática**: Mudanças são salvas instantaneamente e aplicadas automaticamente
 
 ### Dados Exibidos:
 - **Data**: Formato DD/MM/AAAA
 - **Descrição**: Nome da transação + conta (quando disponível)
 - **Banco**: Nome da instituição bancária
 - **Cartão**: Últimos 4 dígitos com ícone de cartão
-- **Pessoa**: Nome da pessoa responsável pela transação
+- **Pessoa**: Nome da pessoa responsável pela transação ou indicação especial:
+  - **"Sem cartão"**: Transações que não possuem número de cartão
+  - **"Cartão não salvo"**: Transações com cartão não cadastrado no sistema
 - **Tipo**: Badge indicando entrada ou saída
 - **Valor**: Quantia formatada em reais com sinal (+/-)
 

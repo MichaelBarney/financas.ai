@@ -43,12 +43,25 @@
               </select>
             </div>
             
-            <input
-              v-model="pdfPassword"
-              type="password"
-              placeholder="Digite a senha do PDF"
-              class="w-full px-12px py-8px border border-yellow-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-            />
+            <!-- Debug info -->
+            <div v-if="banks.length > 0" p-8px bg-blue-50 border border-blue-200 rounded text-xs text-blue-800>
+              <strong>Bancos carregados:</strong> {{ banks.length }} - {{ banks.map(b => b.name).join(', ') }}
+            </div>
+            <div v-else p-8px bg-red-50 border border-red-200 rounded text-xs text-red-800>
+              <strong>Nenhum banco carregado!</strong>
+            </div>
+            
+            <!-- Password input -->
+            <div>
+              <label text-xs font-medium text-yellow-800 mb-4px block>Senha do PDF</label>
+              <input
+                v-model="pdfPassword"
+                type="password"
+                required
+                class="w-full px-12px py-8px border border-yellow-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                placeholder="Digite a senha do PDF"
+              />
+            </div>
           </div>
         </div>
 
@@ -136,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-const { addExtract, addBank, banks } = useFinanceStore()
+const { addExtract, addBank, banks, loadData, getBanks } = useFinanceStore()
 const { uploadPdfToServer, pollExtractResult } = useTelaAPI()
 
 const emit = defineEmits<{
@@ -171,7 +184,7 @@ const canUpload = computed(() => {
 function onDrop(files: File[] | null) {
   if (files && files.length > 0) {
     const file = files[0]
-    if (file.type === 'application/pdf') {
+    if (file && file.type === 'application/pdf') {
       selectedFile.value = file
       // Reset password state when new file is selected
       requiresPassword.value = false
@@ -188,11 +201,14 @@ function openFileDialog() {
 function handleFileSelect(event: Event) {
   const target = event.target as HTMLInputElement
   if (target.files && target.files[0]) {
-    selectedFile.value = target.files[0]
-    // Reset password state when new file is selected
-    requiresPassword.value = false
-    pdfPassword.value = ''
-    selectedBankForPassword.value = ''
+    const file = target.files[0]
+    if (file) {
+      selectedFile.value = file
+      // Reset password state when new file is selected
+      requiresPassword.value = false
+      pdfPassword.value = ''
+      selectedBankForPassword.value = ''
+    }
   }
 }
 
@@ -217,7 +233,10 @@ async function loadSavedPasswords() {
 
 function onBankForPasswordChange() {
   if (selectedBankForPassword.value && savedPasswords.value[selectedBankForPassword.value]) {
-    pdfPassword.value = savedPasswords.value[selectedBankForPassword.value]
+    const password = savedPasswords.value[selectedBankForPassword.value]
+    if (password) {
+      pdfPassword.value = password
+    }
   }
 }
 
@@ -227,7 +246,13 @@ async function uploadExtract() {
   isUploading.value = true
 
   try {
-    const registeredBanks = banks.value.map(bank => bank.name)
+    // Ensure data is loaded and get banks
+    const banksData = await getBanks()
+    
+    // Temporary debug log
+    console.warn('[DEBUG] Banks loaded:', banksData.length, banksData.map(b => b.name))
+    
+    const registeredBanks = banksData.map(bank => bank.name)
     
     // Upload PDF and get completion ID
     const response = await uploadPdfToServer(selectedFile.value, registeredBanks, pdfPassword.value)
