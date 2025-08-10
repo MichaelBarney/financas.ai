@@ -4,7 +4,7 @@
         py-16px px-24px
         b="b-.5px gray-160"
     >
-        <h1 text-xl font-semibold>Gestão Financeira</h1>
+        <h1 text-xl font-semibold>Finanças.ai</h1>
         
         <TelaButton 
             @click="showUploadModal = true"
@@ -26,13 +26,11 @@
 </template>
 
 <script setup lang="ts">
-const { addExtract } = useFinanceStore()
-
 const showUploadModal = ref(false)
 
 function handleUploadSuccess({ bankId, data }: { bankId: string, data: any }) {
-    const savedExtracts = addExtract(bankId, data)
-    console.log('Extracts saved:', savedExtracts)
+    // Extract is already saved by the upload component, just close modal
+    console.log('Upload success for bank:', bankId, 'with', data.transacoes?.length || 0, 'transactions')
     showUploadModal.value = false
 }
 </script>

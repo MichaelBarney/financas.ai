@@ -8,12 +8,16 @@ Sistema de gestão financeira com processamento inteligente de extratos bancári
 
 ## 🚀 Funcionalidades
 
-- **Cadastro de Bancos**: Gerencie múltiplos bancos
-- **Upload de Extratos**: Drag-and-drop de arquivos PDF
+- **Dashboard Organizado**: Interface com sidebar e navegação estruturada
+- **Gestão de Bancos**: Página dedicada para cadastro e gerenciamento de bancos
+- **Gestão de Cartões**: Cadastro, edição e organização de cartões de crédito com portadores
+- **Gestão de Pessoas**: Cadastro de portadores com tipos (Principal, Dependente, Externo)
+- **Gestão de Extratos**: Upload, processamento e visualização de extratos bancários
 - **Processamento Inteligente**: Análise de extratos no servidor com a Tela AI
 - **Suporte a PDFs Criptografados**: Decriptação automática de PDFs protegidos por senha
-- **Visualização por Período**: Organização de transações por mês e ano
-- **Dashboard Financeiro**: Resumo com totais e estatísticas
+- **Dashboard Financeiro**: Resumo com totais e estatísticas em cards informativos
+- **Navegação Intuitiva**: Sidebar com navegação clara entre seções
+- **Transações Internacionais**: Marcação especial para compras no exterior
 - **Armazenamento em Arquivos**: Dados organizados em sistema de arquivos do servidor
 
 ## 🛠️ Tecnologias
@@ -43,29 +47,47 @@ pnpm build
 ```
 ├── components/
 │   ├── app/                    # Componentes de layout
+│   │   ├── app-header.vue     # Cabeçalho da aplicação
+│   │   └── sidebar.vue        # Barra lateral de navegação
 │   ├── ExtractUpload.vue      # Upload de extratos
 │   └── TransactionsList.vue   # Lista de transações
 ├── composables/
 │   ├── useFinanceStore.ts     # Store de dados financeiros
 │   └── useTelaAPI.ts         # Integração com Tela AI
-├── server/api/                # APIs do servidor
+├── layouts/
+│   └── default.vue           # Layout padrão com sidebar
+├── pages/                    # Páginas da aplicação
+│   ├── index.vue             # Dashboard principal
+│   ├── bancos.vue            # Gestão de bancos
+│   ├── cartoes.vue           # Gestão de cartões
+│   └── extratos.vue          # Gestão de extratos
+├── server/api/               # APIs do servidor
 │   ├── banks.get.ts          # Listar bancos
 │   ├── banks.post.ts         # Criar banco
 │   ├── banks/[id].delete.ts  # Remover banco
+│   ├── people.get.ts         # Listar pessoas
+│   ├── people.post.ts        # Criar pessoa
+│   ├── people/[id].delete.ts # Remover pessoa
+│   ├── cards.get.ts          # Listar cartões
+│   ├── cards.post.ts         # Criar cartão
+│   ├── cards/[id].put.ts     # Editar cartão
+│   ├── cards/[id].delete.ts  # Remover cartão
+│   ├── settings.get.ts       # Obter configurações
+│   ├── settings.put.ts       # Atualizar configurações
 │   ├── extracts.get.ts       # Listar extratos
 │   ├── extracts.post.ts      # Salvar transações de um extrato
 │   ├── extracts/[completionId].get.ts # Obter resultado do processamento
 │   ├── process-pdf.post.ts  # Processar PDF e retornar completionId
 │   └── migrate.post.ts       # Migração de dados
-├── storage/                   # Armazenamento de dados
+├── storage/                  # Armazenamento de dados
 │   ├── banks.json            # Lista de bancos
+│   ├── people.json           # Lista de pessoas/portadores
+│   ├── cards.json            # Lista de cartões cadastrados
+│   ├── settings.json         # Configurações da aplicação
 │   ├── pdf/                  # Cópias dos extratos em PDF
 │   ├── decryptedPDFs/        # PDFs decriptados (quando necessário)
-│   ├── temp/                 # Arquivos PDF temporários
-│   └── transactions/         # Transações organizadas
-│       └── {year}/{month}/{bankId}/{filename}.json
-├── pages/
-│   └── index.vue             # Dashboard principal
+│   └── extractions/          # Extratos completos
+│       └── {bankId}/{filename}.json
 └── types/
     └── index.ts              # Tipos TypeScript
 ```
@@ -99,11 +121,18 @@ NODE_ENV=development
 
 ## 🏦 Como Usar
 
-1. **Adicionar Banco**: Clique em "Adicionar Extrato" no header e cadastre um novo banco
-2. **Upload de Extrato**: Arraste um arquivo PDF ou clique para selecionar
+### Navegação
+- **Dashboard**: Visão geral com estatísticas e ações rápidas
+- **Bancos**: Gerencie suas instituições bancárias
+- **Extratos**: Faça upload e visualize extratos processados
+- **Cartões**: Acompanhe seus cartões de crédito
+
+### Fluxo de Uso
+1. **Adicionar Banco**: Acesse a página "Bancos" e cadastre uma nova instituição
+2. **Upload de Extrato**: Vá para "Extratos" e arraste um arquivo PDF ou clique para selecionar
 3. **PDFs Criptografados**: Se o PDF estiver protegido por senha, o sistema solicitará a senha automaticamente
 4. **Processamento**: A IA processará o extrato no servidor e salvará as transações
-5. **Visualização**: Os dados aparecerão organizados por mês na tela principal
+5. **Visualização**: Acesse "Cartões" para ver análises por cartão ou Dashboard para visão geral
 
 ## 🔐 Suporte a PDFs Criptografados
 
@@ -140,6 +169,9 @@ O sistema processa extratos e organiza as transações em:
 - **Descrição**: Detalhes da transação (suporta formato texto ou objeto com nome/conta)
 - **Valor**: Quantia em reais
 - **Cartão**: Número do cartão (quando aplicável)
+- **Final do Cartão**: Últimos 4 dígitos do cartão de crédito
+- **Compra Internacional**: Indica se a transação foi feita no exterior
+- **Formato**: Tipo de operação (débito, crédito, etc.)
 
 ### Formato da Descrição:
 As descrições podem ser:
@@ -153,6 +185,54 @@ Os dados são automaticamente agrupados por:
 - Banco
 - Com cálculos de totais de entrada, saída e saldo
 
+## 💳 Gestão de Cartões de Crédito
+
+O sistema oferece recursos completos para gestão de cartões de crédito:
+
+### Funcionalidades:
+- **Cadastro de Cartões**: Adicione cartões manualmente com nome personalizado e portador
+- **Edição de Cartões**: Altere nome e portador de cartões já cadastrados
+- **Gestão de Portadores**: Cadastre pessoas que podem ser portadoras de cartões
+- **Pessoa Principal**: Defina uma pessoa principal do sistema para cadastros rápidos
+- **Conversão de Extratos**: Transforme cartões identificados nos extratos em cartões cadastrados com um clique
+- **Identificação Automática**: Detecta automaticamente cartões de crédito nas transações dos extratos
+- **Últimos 4 Dígitos**: Exibe os 4 últimos dígitos de cada cartão dos extratos
+- **Agrupamento por Banco**: Cartões organizados por instituição bancária
+- **Dashboard de Cartões**: Visão geral de todos os cartões (cadastrados + extratos)
+- **Estatísticas por Cartão**: Total gasto, quantidade de transações
+- **Estatísticas por Banco**: Totais consolidados por instituição
+- **Compras Internacionais**: Destaque especial para transações no exterior
+- **Ordenação Inteligente**: Bancos e cartões organizados do maior para o menor gasto
+
+### Interface:
+- **Três Seções Principais**:
+  1. **Pessoas**: Gerenciamento de portadores com seleção de pessoa principal
+  2. **Cartões Salvos**: Cartões cadastrados manualmente com opções de edição
+  3. **Cartões dos Extratos**: Cartões identificados automaticamente nos extratos
+- **Botões de Ação**: Adicionar pessoa, adicionar cartão, cadastrar cartão do extrato
+- **Modais de Edição**: Formulários limpos para criação e edição
+- **Indicadores Visuais**: 
+  - ⭐ Pessoa principal marcada com estrela
+  - 🟢 Botão "Cadastrar" em cada cartão do extrato
+  - 📝 Botões de edição e exclusão
+- **Cards Diferenciados**: Cores distintas para cartões salvos vs. cartões dos extratos
+- **Layout Responsivo**: Grid adaptável para diferentes tamanhos de tela
+- **Confirmações de Segurança**: Diálogos de confirmação para exclusões
+
+### Dados Capturados:
+- **finalCartao**: Últimos 4 dígitos do cartão
+- **compraInternacional**: Flag para compras no exterior
+- **formato**: Tipo de operação (débito/crédito)
+- **Totalizações por Cartão**: Somatório de gastos individuais
+- **Totalizações por Banco**: Consolidação de todos os cartões do banco
+- **Contadores**: Número de transações por cartão e por banco
+
+### Hierarquia de Exibição:
+1. **Bancos ordenados por gasto total** (maior → menor)
+2. **Cartões dentro de cada banco ordenados por gasto** (maior → menor)
+3. **Estatísticas consolidadas** no cabeçalho de cada banco
+4. **Separadores visuais** entre diferentes bancos
+
 ## 💾 Sistema de Armazenamento
 
 O sistema utiliza armazenamento em arquivos organizados hierarquicamente:
@@ -163,13 +243,78 @@ O sistema utiliza armazenamento em arquivos organizados hierarquicamente:
 - **Estrutura**: `{ id, name, createdAt }`
 - **Auto-adição**: Bancos detectados pela IA são automaticamente adicionados se não existirem
 
-### Transações
-- **Localização**: `storage/transactions/{year}/{month}/{bankId}/{filename}.json`
-- **Organização**: Separadas por ano, mês e banco
-- **Divisão**: Extratos com transações de múltiplos meses são automaticamente divididos
-- **Exemplo**: `storage/transactions/2025/7/bank-uuid/extract-2025-01-15.json`
+### Extrações
+- **Localização**: `storage/extractions/{bankId}/{filename}.json`
+- **Organização**: Agrupadas por banco
+- **Estrutura**: Cada arquivo contém um extrato completo com todas as transações
+- **Exemplo**: `storage/extractions/bank-uuid/extract-2025-01-15T10-30-45.json`
+- **Frontend**: A divisão por meses é feita dinamicamente no frontend
+
+### Pessoas e Cartões
+- **Pessoas**: `storage/people.json` - Lista de portadores de cartões
+- **Cartões**: `storage/cards.json` - Cartões cadastrados manualmente
+- **Configurações**: `storage/settings.json` - Pessoa principal e outras configurações
+- **Estrutura Pessoa**: `{ id, name, type, createdAt }`
+- **Tipos de Pessoa**: Principal (único), Dependente, Externo
+- **Estrutura Cartão**: `{ id, name, holderId, createdAt, updatedAt }`
+- **Validações**: 
+  - Não permite excluir pessoa com cartões associados
+  - Apenas uma pessoa pode ser do tipo "Principal"
+  - Validação de tipos obrigatória
 
 ### Migração de Dados
 - **Endpoint**: `POST /api/migrate`
 - **Uso**: Para migrar dados do localStorage para o novo sistema
 - **Formato**: Envie `{ banks: [], extracts: [] }` no body da requisição
+
+## 👥 Gestão de Pessoas e Cartões
+
+### Fluxo de Uso para Cartões:
+
+1. **Cadastrar Pessoas**:
+   - Acesse a página "Cartões"
+   - Clique em "Adicionar Pessoa"
+   - Digite o nome da pessoa
+   - Selecione o tipo:
+     - **Principal**: Titular principal (apenas um permitido)
+     - **Dependente**: Cônjuge, filhos, etc.
+     - **Externo**: Terceiros, amigos, etc.
+
+2. **Cadastrar Cartões Manualmente**:
+   - Clique em "Adicionar Cartão"
+   - Digite o nome do cartão (ex: "Nubank Mastercard")
+   - Selecione o portador do cartão
+   - Confirme o cadastro
+
+3. **Cadastrar Cartões dos Extratos**:
+   - Processe extratos normalmente na página "Extratos"
+   - Vá para a página "Cartões"
+   - Na seção "Cartões dos Extratos", clique no botão "Cadastrar" do cartão desejado
+   - Se houver pessoa do tipo "Principal" cadastrada, o cartão será associado automaticamente
+   - Caso contrário, selecione o portador na modal que abrir
+
+4. **Gerenciar Pessoas e Cartões**:
+   - **Pessoas**: Use os ícones de edição (✏️) para alterar nome ou tipo
+   - **Cartões**: Use os ícones de edição (✏️) para alterar nome ou portador
+   - Use os ícones de exclusão (🗑️) para remover pessoas ou cartões
+   - Confirmações são solicitadas para operações destrutivas
+
+### Recursos Avançados:
+
+#### **Sistema de Tipos de Pessoa:**
+- **Principal**: Titular principal do sistema (apenas um permitido)
+  - Usado automaticamente para conversão rápida de cartões dos extratos
+  - Identificado visualmente com badge amarelo
+- **Dependente**: Familiares, cônjuges, filhos
+  - Badge azul para identificação visual
+- **Externo**: Terceiros, amigos, outras pessoas
+  - Badge cinza para identificação visual
+
+#### **Funcionalidades:**
+- **Validação de Unicidade**: Apenas uma pessoa pode ser "Principal"
+- **Edição de Tipos**: Altere o tipo de qualquer pessoa a qualquer momento
+- **Validações Inteligentes**: Não permite excluir pessoas que têm cartões associados
+- **Conversão Rápida**: Cartões dos extratos são automaticamente associados à pessoa Principal
+- **Auto-nomeação**: Cartões convertidos recebem nomes automáticos baseados no banco e últimos dígitos
+- **Interface Visual**: Badges coloridos facilitam identificação dos tipos
+- **Sincronização**: Todos os dados são mantidos sincronizados entre as diferentes seções

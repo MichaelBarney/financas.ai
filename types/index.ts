@@ -7,9 +7,12 @@ export interface Bank {
 export interface Transaction {
     tipo: 'ENTRADA' | 'SAIDA'
     cartao?: string
+    finalCartao?: string
     data: string
     descricao: string | { nome: string; conta: string }
     valor: number
+    formato?: string
+    compraInternacional?: boolean
 }
 
 export interface ExtractResult {
@@ -22,8 +25,23 @@ export interface ExtractResult {
 export interface SavedExtract {
     id: string
     bankId: string
-    year: number
-    month: number
     data: ExtractResult
     uploadedAt: Date
+}
+
+export interface Person {
+    id: string
+    name: string
+    type: 'Principal' | 'Dependente' | 'Externo'
+    createdAt: Date
+}
+
+export interface Card {
+    id: string
+    name: string
+    holderId: string
+    bankId: string
+    finalCartao: string
+    createdAt: Date
+    updatedAt: Date
 }

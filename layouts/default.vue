@@ -1,10 +1,11 @@
 <template>
-    <div w-screen h-screen overflow-x-hidden>
-        <div flex>
-            <div grow>
-                <AppHeader />
+    <div class="w-screen h-screen overflow-x-hidden">
+        <AppHeader />
+        <div class="flex">
+            <AppSidebar />
+            <main class="flex-1 ml-64 p-6">
                 <NuxtPage />
-            </div>
+            </main>
         </div>
     </div>
 </template>

@@ -222,7 +222,7 @@ function onBankForPasswordChange() {
 }
 
 async function uploadExtract() {
-  if (!canUpload.value || !selectedFile.value) return
+  if (!canUpload.value || !selectedFile.value || isUploading.value) return
 
   isUploading.value = true
 
@@ -236,6 +236,8 @@ async function uploadExtract() {
       // PDF requires password
       requiresPassword.value = true
       isUploading.value = false
+      // Load saved passwords when password input becomes visible
+      await loadSavedPasswords()
       return
     }
 
@@ -285,6 +287,12 @@ async function uploadExtract() {
     
     if (error?.statusCode === 422) {
       errorMessage = 'Falha no processamento do documento. Verifique se o arquivo é um extrato válido.'
+    } else if (error?.statusCode === 409) {
+      errorMessage = 'Este extrato já foi processado anteriormente. Não é necessário enviá-lo novamente.'
+      // Close modal for duplicate since it's not really an error
+      setTimeout(() => {
+        closeModal()
+      }, 3000)
     } else if (error?.message?.includes('timeout')) {
       errorMessage = 'Tempo limite excedido. O documento pode estar sendo processado. Tente novamente em alguns minutos.'
     } else if (error?.message?.includes('password')) {
@@ -321,6 +329,13 @@ watch(() => props.showModal, (newVal) => {
     selectedBankForPassword.value = ''
   } else {
     // Load saved passwords when modal opens
+    loadSavedPasswords()
+  }
+})
+
+// Load passwords when password input becomes visible
+watch(requiresPassword, (newVal) => {
+  if (newVal) {
     loadSavedPasswords()
   }
 })

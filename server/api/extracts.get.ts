@@ -5,75 +5,47 @@ import type { SavedExtract } from '~/types'
 export default defineEventHandler(async (event) => {
     try {
         const query = getQuery(event)
-        const { bankId, year, month } = query
+        const { bankId } = query
 
-        const transactionsDir = join(process.cwd(), 'storage', 'transactions')
+        const extractionsDir = join(process.cwd(), 'storage', 'extractions')
         const extracts: SavedExtract[] = []
 
-        // Check if transactions directory exists
+        // Check if extractions directory exists
         try {
-            await fs.access(transactionsDir)
+            await fs.access(extractionsDir)
         }
         catch {
             return []
         }
 
-        // Read all year/month directories
-        const years = await fs.readdir(transactionsDir)
+        // Read all bank directories
+        const banks = await fs.readdir(extractionsDir)
 
-        for (const yearDir of years) {
-            const yearPath = join(transactionsDir, yearDir)
-            const stat = await fs.stat(yearPath)
+        for (const bankDir of banks) {
+            const bankPath = join(extractionsDir, bankDir)
+            const stat = await fs.stat(bankPath)
 
             if (!stat.isDirectory())
                 continue
 
-            // Filter by year if specified
-            if (year && yearDir !== year.toString())
+            // Filter by bankId if specified
+            if (bankId && bankDir !== bankId)
                 continue
 
-            const months = await fs.readdir(yearPath)
+            const files = await fs.readdir(bankPath)
 
-            for (const monthDir of months) {
-                const monthPath = join(yearPath, monthDir)
-                const monthStat = await fs.stat(monthPath)
-
-                if (!monthStat.isDirectory())
+            for (const file of files) {
+                if (!file.endsWith('.json'))
                     continue
 
-                // Filter by month if specified
-                if (month && monthDir !== month.toString())
-                    continue
+                const filePath = join(bankPath, file)
+                const fileData = await fs.readFile(filePath, 'utf-8')
+                const extract: SavedExtract = JSON.parse(fileData)
 
-                const banks = await fs.readdir(monthPath)
+                // Convert date strings back to Date objects
+                extract.uploadedAt = new Date(extract.uploadedAt)
 
-                for (const bankDir of banks) {
-                    const bankPath = join(monthPath, bankDir)
-                    const bankStat = await fs.stat(bankPath)
-
-                    if (!bankStat.isDirectory())
-                        continue
-
-                    // Filter by bankId if specified
-                    if (bankId && bankDir !== bankId)
-                        continue
-
-                    const files = await fs.readdir(bankPath)
-
-                    for (const file of files) {
-                        if (!file.endsWith('.json'))
-                            continue
-
-                        const filePath = join(bankPath, file)
-                        const fileData = await fs.readFile(filePath, 'utf-8')
-                        const extract: SavedExtract = JSON.parse(fileData)
-
-                        // Convert date strings back to Date objects
-                        extract.uploadedAt = new Date(extract.uploadedAt)
-
-                        extracts.push(extract)
-                    }
-                }
+                extracts.push(extract)
             }
         }
 

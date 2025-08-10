@@ -64,7 +64,16 @@
                   <p font-medium text-gray-900>{{ getTransactionDescription(transaction.descricao) }}</p>
                   <div flex gap-16px text-sm text-gray-500>
                     <span>{{ formatDate(transaction.data) }}</span>
-                    <span v-if="transaction.cartao && transaction.cartao !== 'N/A'">Cartão: {{ transaction.cartao }}</span>
+                    <span v-if="transaction.finalCartao && transaction.finalCartao !== 'N/A'" 
+                          class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                      <Icon name="ph:credit-card" size="12" />
+                      **** {{ transaction.finalCartao }}
+                    </span>
+                    <span v-if="transaction.compraInternacional" 
+                          class="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                      <Icon name="ph:globe" size="12" />
+                      Internacional
+                    </span>
                     <span v-if="getTransactionAccount(transaction.descricao)">{{ getTransactionAccount(transaction.descricao) }}</span>
                   </div>
                 </div>
@@ -110,45 +119,67 @@ const groupedExtracts = computed(() => {
   }>()
 
   extracts.value.forEach(extract => {
-    const key = `${extract.year}-${extract.month}`
+    // Group transactions by month from each extract
+    const monthlyGroups = new Map<string, Transaction[]>()
     
-    if (!groups.has(key)) {
-      groups.set(key, {
-        year: extract.year,
-        month: extract.month,
-        monthName: getMonthName(extract.month),
-        key,
-        banks: new Map(),
-        totalTransactions: 0
-      })
-    }
-
-    const group = groups.get(key)!
-    
-    if (!group.banks.has(extract.bankId)) {
-      group.banks.set(extract.bankId, {
-        bankId: extract.bankId,
-        transactions: [],
-        totalIncome: 0,
-        totalExpenses: 0,
-        balance: 0
-      })
-    }
-
-    const bankGroup = group.banks.get(extract.bankId)!
-    bankGroup.transactions.push(...extract.data.transacoes)
-    
-    // Calculate totals
     extract.data.transacoes.forEach(transaction => {
-      if (transaction.tipo === 'ENTRADA') {
-        bankGroup.totalIncome += transaction.valor
-      } else {
-        bankGroup.totalExpenses += transaction.valor
+      const [day, transactionMonth, transactionYear] = transaction.data.split('/')
+      const yearNum = transactionYear.length === 2 
+        ? Number.parseInt(`20${transactionYear}`) 
+        : Number.parseInt(transactionYear)
+      const monthNum = Number.parseInt(transactionMonth)
+      const key = `${yearNum}-${monthNum}`
+      
+      if (!monthlyGroups.has(key)) {
+        monthlyGroups.set(key, [])
       }
+      monthlyGroups.get(key)!.push(transaction)
     })
     
-    bankGroup.balance = bankGroup.totalIncome - bankGroup.totalExpenses
-    group.totalTransactions += extract.data.transacoes.length
+    // Process each month group
+    monthlyGroups.forEach((transactions, key) => {
+      const [year, month] = key.split('-')
+      const yearNum = Number.parseInt(year)
+      const monthNum = Number.parseInt(month)
+      
+      if (!groups.has(key)) {
+        groups.set(key, {
+          year: yearNum,
+          month: monthNum,
+          monthName: getMonthName(monthNum),
+          key,
+          banks: new Map(),
+          totalTransactions: 0
+        })
+      }
+
+      const group = groups.get(key)!
+      
+      if (!group.banks.has(extract.bankId)) {
+        group.banks.set(extract.bankId, {
+          bankId: extract.bankId,
+          transactions: [],
+          totalIncome: 0,
+          totalExpenses: 0,
+          balance: 0
+        })
+      }
+
+      const bankGroup = group.banks.get(extract.bankId)!
+      bankGroup.transactions.push(...transactions)
+      
+      // Calculate totals
+      transactions.forEach(transaction => {
+        if (transaction.tipo === 'ENTRADA') {
+          bankGroup.totalIncome += transaction.valor
+        } else {
+          bankGroup.totalExpenses += transaction.valor
+        }
+      })
+      
+      bankGroup.balance = bankGroup.totalIncome - bankGroup.totalExpenses
+      group.totalTransactions += transactions.length
+    })
   })
 
   // Convert to array and sort by date (newest first)

@@ -12,6 +12,7 @@
   "dependencies": {
     "@meistrari/tela-sdk-js": "^1.0.2",
     "@nuxt/icon": "^1.15.0",
+    "@nuxt/ui": "^3.3.0",
     "@vueuse/core": "^12.8.2",
     "motion": "11.13.1",
     "nitropack": "2.10.4",
