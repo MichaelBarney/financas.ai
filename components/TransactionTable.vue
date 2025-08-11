@@ -1,4 +1,220 @@
 <template>
+  <!-- Investments Section -->
+  <div v-if="investmentTransactions.length > 0" class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg mb-6">
+    <div class="px-6 py-4 border-b border-green-200">
+      <h2 class="text-xl font-semibold text-green-900 flex items-center gap-2">
+        📈 Investimentos
+      </h2>
+    </div>
+    
+    <!-- Investment Summary -->
+    <div class="px-6 py-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div class="bg-white rounded-lg p-4 border border-green-200">
+          <div class="text-sm font-medium text-blue-600">Aplicações</div>
+          <div class="text-sm text-gray-500">Dinheiro que entrou nos investimentos</div>
+          <div class="text-2xl font-bold text-blue-700">{{ formatCurrency(investmentExpenses) }}</div>
+        </div>
+        
+        <div class="bg-white rounded-lg p-4 border border-green-200">
+          <div class="text-sm font-medium text-red-600">Retiradas</div>
+          <div class="text-sm text-gray-500">Dinheiro que saiu dos investimentos</div>
+          <div class="text-2xl font-bold text-red-700">{{ formatCurrency(investmentIncome) }}</div>
+        </div>
+        
+        <div class="bg-white rounded-lg p-4 border border-green-200">
+          <div class="text-sm font-medium text-gray-600">Investimento Líquido</div>
+          <div class="text-sm text-gray-500">Aplicações - Retiradas</div>
+          <div class="text-2xl font-bold" :class="investmentBalance >= 0 ? 'text-blue-600' : 'text-red-600'">
+            {{ formatCurrency(investmentBalance) }}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Investment Transactions Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-green-50">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-medium text-green-700 uppercase tracking-wider">Data</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-green-700 uppercase tracking-wider">Descrição</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-green-700 uppercase tracking-wider">Tipo</th>
+              <th class="px-4 py-2 text-right text-xs font-medium text-green-700 uppercase tracking-wider">Valor</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-green-100">
+            <tr 
+              v-for="(investment, index) in investmentTransactions" 
+              :key="investment.isConsolidated ? `consolidated-inv-${investment.memoryRuleId}` : `inv-${investment.extractId}-${investment.originalIndex}`"
+              :class="[
+                'hover:bg-green-50 transition-colors cursor-pointer',
+                investment.isConsolidated ? 'bg-gradient-to-r from-green-100 to-emerald-100' : '',
+                investment.isPartOfConsolidated ? 'bg-gradient-to-r from-green-50 to-emerald-50 pl-4' : ''
+              ]"
+              @click="handleTransactionClick(investment)"
+            >
+              <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                {{ formatDate(investment.data, investment.extractId) }}
+              </td>
+              <td class="px-4 py-2 text-sm">
+                <div>
+                  <p class="font-medium text-green-800">
+                    <span v-if="investment.isPartOfConsolidated" class="text-green-400 mr-2">└─</span>
+                    {{ investment.significado || getTransactionDescription(investment) }}
+                    <span v-if="investment.isConsolidated">
+                      {{ expandedConsolidated.has(investment.memoryRuleId || '') ? '📂' : '📦' }}
+                    </span>
+                  </p>
+                  <p v-if="investment.isConsolidated" class="text-xs text-green-600 font-medium">
+                    {{ investment.consolidatedCount }} transações - 
+                    <span class="text-green-500">
+                      {{ expandedConsolidated.has(investment.memoryRuleId || '') ? 'Clique para recolher' : 'Clique para expandir' }}
+                    </span>
+                  </p>
+                </div>
+              </td>
+              <td class="px-4 py-2 whitespace-nowrap text-sm">
+                <span 
+                  :class="[
+                    'inline-flex items-center px-2 py-1 text-xs font-medium rounded-full',
+                    investment.tipo === 'ENTRADA' 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  ]"
+                >
+                  {{ investment.tipo === 'ENTRADA' ? 'Retirada' : 'Aplicação' }}
+                </span>
+              </td>
+              <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-right">
+                <span :class="investment.tipo === 'ENTRADA' ? 'text-red-600' : 'text-blue-600'">
+                  {{ investment.tipo === 'ENTRADA' ? '-' : '+' }}{{ formatCurrency(investment.valor) }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Spending Chart -->
+  <div v-if="categorySpending.length > 0" class="bg-white border border-gray-200 rounded-lg mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
+        📊 Gastos por Categoria
+      </h2>
+    </div>
+    
+    <div class="px-6 py-4">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Interactive Pie Chart -->
+        <div class="flex flex-col items-center">
+          <div class="relative">
+            <svg width="300" height="300" viewBox="0 0 300 300" class="transform -rotate-90">
+              <!-- Pie slices -->
+              <g v-for="(slice, index) in pieSlices" :key="slice.category.id">
+                <path
+                  :d="slice.path"
+                  :fill="getCategoryColor(slice.category.id, index)"
+                  :stroke="hoveredSlice === index ? '#ffffff' : 'none'"
+                  :stroke-width="hoveredSlice === index ? '3' : '0'"
+                  class="transition-all duration-300 cursor-pointer"
+                  :class="{ 'opacity-80': hoveredSlice !== null && hoveredSlice !== index }"
+                  @mouseenter="hoveredSlice = index"
+                  @mouseleave="hoveredSlice = null"
+                />
+              </g>
+              
+              <!-- Center circle for donut effect -->
+              <circle cx="150" cy="150" r="60" fill="white" />
+              
+              <!-- Center text -->
+              <text x="150" y="145" text-anchor="middle" class="transform rotate-90 origin-center">
+                <tspan class="text-xs fill-gray-600">Total Gasto</tspan>
+              </text>
+              <text x="150" y="160" text-anchor="middle" class="transform rotate-90 origin-center">
+                <tspan class="text-sm font-bold fill-gray-900">{{ formatCurrency(totalExpenses) }}</tspan>
+              </text>
+            </svg>
+            
+            <!-- Tooltip -->
+            <div 
+              v-if="hoveredSlice !== null" 
+              class="absolute top-2 left-2 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg z-10 pointer-events-none"
+            >
+              <div class="flex items-center gap-2 mb-1">
+                <span>{{ pieSlices[hoveredSlice]?.category.emoji }}</span>
+                <span class="font-medium">{{ pieSlices[hoveredSlice]?.category.text }}</span>
+              </div>
+              <div class="text-sm">
+                {{ formatCurrency(pieSlices[hoveredSlice]?.category.amount || 0) }}
+                <span class="text-gray-300">
+                  ({{ pieSlices[hoveredSlice]?.category.percentage.toFixed(1) }}%)
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Legend -->
+          <div class="mt-4 grid grid-cols-2 gap-2 w-full max-w-sm">
+            <div 
+              v-for="(category, index) in categorySpending.slice(0, 8)" 
+              :key="category.id"
+              class="flex items-center gap-2 p-2 rounded cursor-pointer transition-colors"
+              :class="{ 'bg-gray-100': hoveredSlice === index }"
+              @mouseenter="hoveredSlice = index"
+              @mouseleave="hoveredSlice = null"
+            >
+              <div 
+                class="w-3 h-3 rounded-full"
+                :style="{ backgroundColor: getCategoryColor(category.id, index) }"
+              ></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-medium text-gray-900 truncate">
+                  {{ category.emoji }} {{ category.text }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  {{ category.percentage.toFixed(1) }}%
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Show remaining categories if more than 8 -->
+          <div v-if="categorySpending.length > 8" class="mt-2 text-xs text-gray-500 text-center">
+            +{{ categorySpending.length - 8 }} outras categorias
+          </div>
+        </div>
+        
+        <!-- Summary stats -->
+        <div class="bg-gray-50 rounded-lg p-4">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Resumo de Gastos</h3>
+          <div class="space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Total de Categorias:</span>
+              <span class="font-medium">{{ categorySpending.length }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Total Gasto:</span>
+              <span class="font-medium text-red-600">{{ formatCurrency(totalExpenses) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Maior Categoria:</span>
+              <div class="text-right">
+                <div class="font-medium text-sm">{{ categorySpending[0]?.emoji }} {{ categorySpending[0]?.text }}</div>
+                <div class="text-xs text-gray-500">{{ formatCurrency(categorySpending[0]?.amount || 0) }}</div>
+              </div>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-gray-600">Média por Categoria:</span>
+              <span class="font-medium">{{ formatCurrency(totalExpenses / categorySpending.length) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="bg-white border border-gray-200 rounded-lg">
     <!-- Header with filters -->
     <div class="px-6 py-4 border-b border-gray-200">
@@ -636,6 +852,9 @@ const editingMemoryRuleId = ref<string | null>(null)
 // Expanded consolidated transactions state
 const expandedConsolidated = ref<Set<string>>(new Set())
 
+// Pie chart interaction state
+const hoveredSlice = ref<number | null>(null)
+
 // Storage keys for remembering user preferences
 const STORAGE_KEYS = {
   SELECTED_YEAR: 'financas-ai-selected-year',
@@ -901,6 +1120,105 @@ const totalExpenses = computed(() => {
 
 const balance = computed(() => totalIncome.value - totalExpenses.value)
 
+// Investment totals
+const investmentIncome = computed(() => {
+  return investmentTransactions.value
+    .filter(t => t.tipo === 'ENTRADA' && !t.skipped)
+    .reduce((sum, t) => sum + t.valor, 0)
+})
+
+const investmentExpenses = computed(() => {
+  return investmentTransactions.value
+    .filter(t => t.tipo === 'SAIDA' && !t.skipped)
+    .reduce((sum, t) => sum + t.valor, 0)
+})
+
+const investmentBalance = computed(() => investmentExpenses.value - investmentIncome.value)
+
+// Category spending analysis (excluding investments)
+const categorySpending = computed(() => {
+  const expenses = transactionsWithConsolidation.value.filter(t => t.tipo === 'SAIDA' && !t.skipped)
+  const categoryMap = new Map<string, { amount: number, emoji: string, text: string }>()
+  
+  for (const transaction of expenses) {
+    const categoryId = transaction.classificationId || 'uncategorized'
+    let categoryInfo = { amount: 0, emoji: '❓', text: 'Sem categoria' }
+    
+    if (categoryId !== 'uncategorized') {
+      const classification = classifications.value.find(c => c.id === categoryId)
+      if (classification) {
+        categoryInfo = {
+          amount: 0,
+          emoji: classification.emoji,
+          text: classification.text
+        }
+      }
+    }
+    
+    const existing = categoryMap.get(categoryId) || categoryInfo
+    existing.amount += transaction.valor
+    categoryMap.set(categoryId, existing)
+  }
+  
+  const totalExpenses = Array.from(categoryMap.values()).reduce((sum, cat) => sum + cat.amount, 0)
+  
+  return Array.from(categoryMap.entries())
+    .map(([id, data]) => ({
+      id,
+      ...data,
+      percentage: totalExpenses > 0 ? (data.amount / totalExpenses) * 100 : 0
+    }))
+    .sort((a, b) => b.amount - a.amount) // Sort by amount descending
+})
+
+// Pie chart slices computation
+const pieSlices = computed(() => {
+  if (categorySpending.value.length === 0) return []
+  
+  const slices = []
+  let currentAngle = 0
+  const centerX = 150
+  const centerY = 150
+  const radius = 90
+  
+  for (const category of categorySpending.value) {
+    const startAngle = currentAngle
+    const endAngle = currentAngle + (category.percentage / 100) * 360
+    
+    // Convert angles to radians
+    const startRad = (startAngle * Math.PI) / 180
+    const endRad = (endAngle * Math.PI) / 180
+    
+    // Calculate arc points
+    const startX = centerX + radius * Math.cos(startRad)
+    const startY = centerY + radius * Math.sin(startRad)
+    const endX = centerX + radius * Math.cos(endRad)
+    const endY = centerY + radius * Math.sin(endRad)
+    
+    // Large arc flag for arcs greater than 180 degrees
+    const largeArc = category.percentage > 50 ? 1 : 0
+    
+    // Create SVG path
+    const path = [
+      `M ${centerX} ${centerY}`, // Move to center
+      `L ${startX} ${startY}`, // Line to start point
+      `A ${radius} ${radius} 0 ${largeArc} 1 ${endX} ${endY}`, // Arc to end point
+      'Z' // Close path
+    ].join(' ')
+    
+    slices.push({
+      category,
+      path,
+      startAngle,
+      endAngle
+    })
+    
+    currentAngle = endAngle
+  }
+  
+  return slices
+})
+
 // Computed property for transactions with consolidation logic
 const transactionsWithConsolidation = computed(() => {
   const { memoryRules } = useMemory()
@@ -948,8 +1266,8 @@ const transactionsWithConsolidation = computed(() => {
           ...firstTransaction,
           descricao: `${rule.significado} - Consolidado`,
           significado: `${rule.significado} - Consolidado`,
-          valor: totalValue,
-          tipo: totalValue >= 0 ? 'ENTRADA' : 'SAIDA',
+          valor: Math.abs(totalValue), // Use absolute value since tipo determines sign
+          tipo: firstTransaction.tipo, // Use the same tipo as the original transactions
           appliedFromMemory: true,
           memoryRuleId: ruleId,
           isConsolidated: true,
@@ -961,8 +1279,85 @@ const transactionsWithConsolidation = computed(() => {
     }
   }
   
-  // Return normal transactions followed by consolidated ones
-  return [...normalTransactions, ...consolidatedTransactions]
+  // Filter out investment transactions (classification ID "7")
+  const filteredNormalTransactions = normalTransactions.filter(t => t.classificationId !== '7')
+  const filteredConsolidatedTransactions = consolidatedTransactions.filter(t => {
+    if (t.isConsolidated) {
+      // For consolidated transactions, check if the rule is for investments
+      const rule = memoryRules.value.find(r => r.id === t.memoryRuleId)
+      return rule?.classificationId !== '7'
+    }
+    return t.classificationId !== '7'
+  })
+  
+  // Return normal transactions followed by consolidated ones (excluding investments)
+  return [...filteredNormalTransactions, ...filteredConsolidatedTransactions]
+})
+
+// Computed property for investment transactions only
+const investmentTransactions = computed(() => {
+  const { memoryRules } = useMemory()
+  const normalInvestments: TransactionWithMetadata[] = []
+  const consolidatedInvestmentGroups: { [key: string]: TransactionWithMetadata[] } = {}
+  
+  // Separate investment transactions into normal and consolidated groups
+  for (const transaction of filteredTransactions.value) {
+    if (transaction.classificationId === '7') {
+      if (transaction.appliedFromMemory && transaction.memoryRuleId) {
+        const rule = memoryRules.value.find(r => r.id === transaction.memoryRuleId)
+        if (rule?.consolidar && rule.significado && rule.classificationId === '7') {
+          // Group consolidatable investment transactions by rule ID
+          if (!consolidatedInvestmentGroups[rule.id]) {
+            consolidatedInvestmentGroups[rule.id] = []
+          }
+          consolidatedInvestmentGroups[rule.id].push(transaction)
+        } else {
+          normalInvestments.push(transaction)
+        }
+      } else {
+        normalInvestments.push(transaction)
+      }
+    }
+  }
+  
+  // Create consolidated investment transactions and handle expansion
+  const consolidatedInvestments: TransactionWithMetadata[] = []
+  for (const [ruleId, transactions] of Object.entries(consolidatedInvestmentGroups)) {
+    const rule = memoryRules.value.find(r => r.id === ruleId)
+    if (rule && transactions.length > 0) {
+      const isExpanded = expandedConsolidated.value.has(ruleId)
+      
+      if (isExpanded) {
+        // Show individual transactions when expanded
+        consolidatedInvestments.push(...transactions.map(t => ({
+          ...t,
+          isPartOfConsolidated: true,
+          consolidatedRuleId: ruleId
+        })))
+      } else {
+        // Show consolidated transaction when collapsed
+        const totalValue = transactions.reduce((sum, t) => sum + t.valor, 0)
+        const firstTransaction = transactions[0]
+        
+        const consolidatedTransaction: TransactionWithMetadata = {
+          ...firstTransaction,
+          descricao: `${rule.significado} - Consolidado`,
+          significado: `${rule.significado} - Consolidado`,
+          valor: Math.abs(totalValue),
+          tipo: firstTransaction.tipo,
+          appliedFromMemory: true,
+          memoryRuleId: ruleId,
+          isConsolidated: true,
+          consolidatedCount: transactions.length
+        }
+        
+        consolidatedInvestments.push(consolidatedTransaction)
+      }
+    }
+  }
+  
+  // Return investment transactions
+  return [...normalInvestments, ...consolidatedInvestments]
 })
 
 // Validation for modal form
@@ -1402,6 +1797,30 @@ function toggleConsolidatedExpansion(memoryRuleId: string) {
   } else {
     expandedConsolidated.value.add(memoryRuleId)
   }
+}
+
+// Function to get color for category charts
+function getCategoryColor(categoryId: string, index: number): string {
+  const colors = [
+    '#3B82F6', // blue
+    '#EF4444', // red
+    '#10B981', // green
+    '#F59E0B', // amber
+    '#8B5CF6', // violet
+    '#EC4899', // pink
+    '#06B6D4', // cyan
+    '#84CC16', // lime
+    '#F97316', // orange
+    '#6366F1', // indigo
+    '#14B8A6', // teal
+    '#EAB308', // yellow
+  ]
+  
+  if (categoryId === 'uncategorized') {
+    return '#6B7280' // gray for uncategorized
+  }
+  
+  return colors[index % colors.length]
 }
 
 // Function to edit memory rule
