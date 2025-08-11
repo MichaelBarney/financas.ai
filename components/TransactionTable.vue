@@ -111,26 +111,54 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr 
-            v-for="transaction in filteredTransactions" 
-            :key="`${transaction.extractId}-${transaction.originalIndex}`"
+            v-for="(transaction, index) in transactionsWithConsolidation" 
+            :key="transaction.isConsolidated ? `consolidated-${transaction.memoryRuleId}` : `${transaction.extractId}-${transaction.originalIndex}`"
             :class="[
-              'hover:bg-gray-50 cursor-pointer transition-colors',
+              'hover:bg-gray-50 transition-colors cursor-pointer',
               getTransactionRowClasses(transaction)
             ]"
-            @click="openSignificadoModal(transaction)"
+            @click="handleTransactionClick(transaction)"
           >
-          <!-- Data -->
+                      <!-- Data -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-              {{ formatDate(transaction.data) }}
+              {{ formatDate(transaction.data, transaction.extractId) }}
             </td>
             <!-- Descrição -->
             <td class="px-6 py-4 text-sm text-gray-900">
               <div>
-                <p v-if="transaction.significado" class="text-purple-600 font-medium">
-                   {{ transaction.significado }} ✨
+                <p v-if="transaction.significado" class="font-medium" 
+                   :class="{
+                     'text-purple-800': transaction.isConsolidated,
+                     'text-purple-600': !transaction.isConsolidated && !transaction.isPartOfConsolidated,
+                     'text-purple-700 pl-4': transaction.isPartOfConsolidated
+                   }">
+                   <span v-if="transaction.isPartOfConsolidated" class="text-purple-400 mr-2">└─</span>
+                   {{ transaction.significado }} 
+                   <span v-if="transaction.isConsolidated">
+                     {{ expandedConsolidated.has(transaction.memoryRuleId || '') ? '📂' : '📦' }}
+                   </span>
+                   <span v-else-if="!transaction.isPartOfConsolidated">✨</span>
+                   <span v-if="transaction.appliedFromMemory && !transaction.isConsolidated && !transaction.isPartOfConsolidated" class="text-blue-600 ml-2">🧠</span>
                 </p>
-                <p v-else class="font-medium">{{ getTransactionDescription(transaction) }}</p>
-                <p v-if="getTransactionAccount(transaction.descricao) && getTransactionAccount(transaction.descricao) !== 'N/A'" class="text-xs text-gray-500">
+                <p v-else class="font-medium" 
+                   :class="{
+                     'text-purple-800': transaction.isConsolidated,
+                     'text-purple-700 pl-4': transaction.isPartOfConsolidated
+                   }">
+                  <span v-if="transaction.isPartOfConsolidated" class="text-purple-400 mr-2">└─</span>
+                  {{ getTransactionDescription(transaction) }}
+                  <span v-if="transaction.isConsolidated">
+                    {{ expandedConsolidated.has(transaction.memoryRuleId || '') ? '📂' : '📦' }}
+                  </span>
+                  <span v-if="transaction.appliedFromMemory && !transaction.isConsolidated && !transaction.isPartOfConsolidated" class="text-blue-600 ml-2">🧠</span>
+                </p>
+                <p v-if="transaction.isConsolidated" class="text-xs text-purple-600 font-medium">
+                  {{ transaction.consolidatedCount }} transações - 
+                  <span class="text-purple-500">
+                    {{ expandedConsolidated.has(transaction.memoryRuleId || '') ? 'Clique para recolher' : 'Clique para expandir' }}
+                  </span>
+                </p>
+                <p v-else-if="!transaction.isPartOfConsolidated && getTransactionAccount(transaction.descricao) && getTransactionAccount(transaction.descricao) !== 'N/A'" class="text-xs text-gray-500">
                   {{ getTransactionAccount(transaction.descricao) }}
                 </p>
 
@@ -215,7 +243,10 @@
               </div>
               <div v-else-if="transaction.classificationId" class="flex items-center gap-2">
                 <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                  {{ getClassificationEmoji(transaction.classificationId) }} {{ getClassificationText(transaction.classificationId) }}
+                  {{ getClassificationText(transaction.classificationId) }}
+                </span>
+                <span v-if="transaction.appliedFromMemory" class="text-xs text-purple-600" title="Aplicado via memória">
+                  💾
                 </span>
               </div>
               <div v-else class="flex items-center gap-2">
@@ -274,7 +305,7 @@
 
     <!-- Significado Modal -->
     <div v-if="showSignificadoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-md">
+      <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-gray-900">
             {{ editingTransaction?.classificationId ? 'Editar Transação' : 'Analisar Transação' }}
@@ -291,9 +322,37 @@
           <p class="text-sm text-gray-600 mb-2">Transação:</p>
           <div class="bg-gray-50 p-3 rounded-lg">
             <p class="font-medium text-gray-900">{{ editingTransaction ? getTransactionDescription(editingTransaction) : '' }}</p>
-            <p class="text-sm text-gray-600">{{ editingTransaction ? `${formatDate(editingTransaction.data)} - ${formatCurrency(editingTransaction.valor)}` : '' }}</p>
+            <p class="text-sm text-gray-600">{{ editingTransaction ? `${formatDate(editingTransaction.data, editingTransaction.extractId)} - ${formatCurrency(editingTransaction.valor)}` : '' }}</p>
           </div>
         </div>
+
+        <!-- Memory Rule Info Section -->
+        <div v-if="editingTransaction?.appliedFromMemory && editingTransaction?.memoryRuleId" class="mb-4">
+          <p class="text-sm text-gray-600 mb-2">🧠 Regra de Memória Aplicada:</p>
+          <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-blue-900">
+                  Incluir quando contém: <span class="font-normal">{{ getMemoryRuleText(editingTransaction.memoryRuleId) }}</span>
+                </p>
+                <p v-if="editingTransaction.significado" class="text-xs text-blue-700 mt-1">
+                  Significado: {{ editingTransaction.significado }}
+                </p>
+                <p v-if="editingTransaction.classificationId" class="text-xs text-blue-700 mt-1">
+                  Classificação: {{ getClassificationText(editingTransaction.classificationId) }}
+                </p>
+              </div>
+              <button
+                @click="editMemoryRule(editingTransaction.memoryRuleId)"
+                class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+              >
+                Editar Regra
+              </button>
+            </div>
+          </div>
+        </div>
+
+
 
         <form @submit.prevent="saveSignificado" class="space-y-4">
           <div>
@@ -312,13 +371,101 @@
             </p>
           </div>
 
+          <!-- Advanced Options Toggle -->
+          <div class="border-t pt-4">
+            <button
+              type="button"
+              @click="showAdvancedOptions = !showAdvancedOptions"
+              class="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              <Icon 
+                :name="showAdvancedOptions ? 'heroicons:chevron-down' : 'heroicons:chevron-right'" 
+                class="w-4 h-4" 
+              />
+              Opções Avançadas
+            </button>
+            
+            <div v-if="showAdvancedOptions" class="mt-3 space-y-4" data-advanced-options>
+              <!-- Memory Rule Section -->
+              <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 class="text-sm font-medium text-blue-900 mb-3">💾 Lembrar esta classificação</h4>
+                <p class="text-xs text-blue-700 mb-3">
+                  Crie uma regra para aplicar automaticamente esta classificação e significado quando encontrar transações similares.
+                </p>
+                
+                <div class="space-y-3">
+                  <div>
+                    <label for="memoryIncludes" class="block text-xs font-medium text-blue-800 mb-1">
+                      Incluir quando a descrição contiver:
+                    </label>
+                    <input
+                      id="memoryIncludes"
+                      v-model="memoryIncludes"
+                      type="text"
+                      class="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Ex: 'NETFLIX', 'UBER', 'IFOOD'"
+                    />
+                  </div>
+                  
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-3">
+                      <label class="flex items-center gap-2">
+                        <input
+                          v-model="memorySaveClassification"
+                          type="checkbox"
+                          class="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span class="text-xs text-blue-800">Salvar classificação</span>
+                      </label>
+                      
+                      <label class="flex items-center gap-2">
+                        <input
+                          v-model="memorySaveSignificado"
+                          type="checkbox"
+                          class="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span class="text-xs text-blue-800">Salvar significado</span>
+                      </label>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                      <label class="flex items-center gap-2">
+                        <input
+                          v-model="memoryConsolidar"
+                          type="checkbox"
+                          class="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                          :disabled="!memorySaveSignificado"
+                        />
+                        <span class="text-xs text-blue-800" :class="{ 'text-gray-400': !memorySaveSignificado }">
+                          Consolidar transações similares
+                        </span>
+                      </label>
+                      <div v-if="!memorySaveSignificado" class="text-xs text-gray-500">
+                        (requer significado)
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button
+                    v-if="memoryIncludes.trim() && (memorySaveClassification || memorySaveSignificado)"
+                    type="button"
+                    @click="createMemoryRule"
+                    class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    {{ editingMemoryRuleId ? '💾 Atualizar Regra de Memória' : '💾 Criar Regra de Memória' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div>
             <label for="classification" class="block text-sm font-medium text-gray-700 mb-2">
               Classificação <span class="text-red-500">*</span>
             </label>
             <div class="space-y-3">
               <!-- Existing classifications -->
-              <div v-if="classifications.length > 0" class="grid grid-cols-2 gap-2">
+              <div v-if="classifications.length > 0" class="grid grid-cols-3 gap-2">
                 <button
                   v-for="classification in classifications"
                   :key="classification.id"
@@ -446,14 +593,19 @@ interface TransactionWithMetadata extends Transaction {
   extractId: string
   banco: string
   originalIndex: number
+  isConsolidated?: boolean
+  consolidatedCount?: number
+  isPartOfConsolidated?: boolean
+  consolidatedRuleId?: string
 }
 
-const { extracts, people, cards, classifications, updateTransactionSignificado, updateTransactionClassification, addClassification } = useFinanceStore()
+const { extracts, people, cards, classifications, updateTransactionSignificado, updateTransactionClassification, addClassification, skipTransaction } = useFinanceStore()
+const { addMemoryRule, applyMemoryRules, updateMemoryRule } = useMemory()
 
 // Month/Year selection
 const currentDate = new Date()
-const selectedYear = ref(currentDate.getFullYear())
-const selectedMonth = ref(currentDate.getMonth() + 1) // Default to current month
+const selectedYear = ref(2025) // Default to 2025 since that's when the extraction was uploaded
+const selectedMonth = ref(7) // Default to July since that's when most transactions are
 
 // People type filtering
 const selectedPeopleTypes = ref<string[]>(['Principal', 'Dependente', 'Externo', 'Outro'])
@@ -472,6 +624,17 @@ const isSubmitting = ref(false)
 
 // Skip transaction state
 const skipReason = ref('')
+
+// Advanced options state
+const showAdvancedOptions = ref(false)
+const memoryIncludes = ref('')
+const memorySaveClassification = ref(false)
+const memorySaveSignificado = ref(false)
+const memoryConsolidar = ref(false)
+const editingMemoryRuleId = ref<string | null>(null)
+
+// Expanded consolidated transactions state
+const expandedConsolidated = ref<Set<string>>(new Set())
 
 // Storage keys for remembering user preferences
 const STORAGE_KEYS = {
@@ -558,8 +721,21 @@ const availableMonths = computed(() => {
       const [day, month, year] = transaction.data.split('/')
       if (!day || !month || !year) return
       
-      const yearNum = year.length === 2 ? Number.parseInt(`20${year}`) : Number.parseInt(year)
+      let yearNum: number
+      if (year === 'xx') {
+        // Use the year from the extraction upload date
+        yearNum = new Date(extract.uploadedAt).getFullYear()
+      } else if (year.length === 2) {
+        yearNum = Number.parseInt(`20${year}`)
+      } else {
+        yearNum = Number.parseInt(year)
+      }
+      
+      if (isNaN(yearNum)) return
+      
       const monthNum = Number.parseInt(month)
+      if (isNaN(monthNum)) return
+      
       months.add(`${yearNum}-${monthNum}`)
     })
     return months
@@ -604,8 +780,20 @@ const filteredTransactions = computed(() => {
       const [day, month, year] = transaction.data.split('/')
       if (!day || !month || !year) return
       
-      const yearNum = year.length === 2 ? Number.parseInt(`20${year}`) : Number.parseInt(year)
+      let yearNum: number
+      if (year === 'xx') {
+        // Use the year from the extraction upload date
+        yearNum = new Date(extract.uploadedAt).getFullYear()
+      } else if (year.length === 2) {
+        yearNum = Number.parseInt(`20${year}`)
+      } else {
+        yearNum = Number.parseInt(year)
+      }
+      
+      if (isNaN(yearNum)) return
+      
       const monthNum = Number.parseInt(month)
+      if (isNaN(monthNum)) return
       
       if (yearNum === selectedYear.value && monthNum === selectedMonth.value) {
         // Check if transaction should be shown based on people type filter
@@ -624,13 +812,31 @@ const filteredTransactions = computed(() => {
         }
         
         if (shouldInclude) {
-          transactions.push({
+          // Apply memory rules to the transaction (frontend only, doesn't modify extraction)
+          let processedTransaction = {
             ...transaction,
             bankId: extract.bankId,
             extractId: extract.id,
             banco: extract.data.banco,
             originalIndex: index
-          })
+          }
+          
+          // Check if transaction doesn't already have classification/significado from extraction
+          if (!processedTransaction.classificationId && !processedTransaction.significado) {
+            const memoryResult = applyMemoryRules(processedTransaction)
+            if (memoryResult) {
+              // Apply memory rules as frontend overlay
+              processedTransaction = {
+                ...processedTransaction,
+                classificationId: memoryResult.classificationId || processedTransaction.classificationId,
+                significado: memoryResult.significado || processedTransaction.significado,
+                appliedFromMemory: true,
+                memoryRuleId: memoryResult.memoryRuleId
+              }
+            }
+          }
+          
+          transactions.push(processedTransaction)
         }
       }
     })
@@ -649,26 +855,115 @@ const filteredTransactions = computed(() => {
     
     if (!dayA || !monthA || !yearA || !dayB || !monthB || !yearB) return 0
     
-    const dateA = new Date(Number.parseInt(yearA), Number.parseInt(monthA) - 1, Number.parseInt(dayA))
-    const dateB = new Date(Number.parseInt(yearB), Number.parseInt(monthB) - 1, Number.parseInt(dayB))
+    let yearANum: number, yearBNum: number
+    
+    // Handle 'xx' year format for sorting
+    if (yearA === 'xx') {
+      // Find the extract for this transaction to get the upload date
+      const extractA = extracts.value.find(e => e.id === a.extractId)
+      yearANum = extractA ? new Date(extractA.uploadedAt).getFullYear() : 2000
+    } else if (yearA.length === 2) {
+      yearANum = Number.parseInt(`20${yearA}`)
+    } else {
+      yearANum = Number.parseInt(yearA)
+    }
+    
+    if (yearB === 'xx') {
+      // Find the extract for this transaction to get the upload date
+      const extractB = extracts.value.find(e => e.id === b.extractId)
+      yearBNum = extractB ? new Date(extractB.uploadedAt).getFullYear() : 2000
+    } else if (yearB.length === 2) {
+      yearBNum = Number.parseInt(`20${yearB}`)
+    } else {
+      yearBNum = Number.parseInt(yearB)
+    }
+    
+    if (isNaN(yearANum) || isNaN(yearBNum)) return 0
+    
+    const dateA = new Date(yearANum, Number.parseInt(monthA) - 1, Number.parseInt(dayA))
+    const dateB = new Date(yearBNum, Number.parseInt(monthB) - 1, Number.parseInt(dayB))
     return dateA.getTime() - dateB.getTime()
   })
 })
 
 // Computed totals
 const totalIncome = computed(() => {
-  return filteredTransactions.value
+  return transactionsWithConsolidation.value
     .filter(t => t.tipo === 'ENTRADA' && !t.skipped)
     .reduce((sum, t) => sum + t.valor, 0)
 })
 
 const totalExpenses = computed(() => {
-  return filteredTransactions.value
+  return transactionsWithConsolidation.value
     .filter(t => t.tipo === 'SAIDA' && !t.skipped)
     .reduce((sum, t) => sum + t.valor, 0)
 })
 
 const balance = computed(() => totalIncome.value - totalExpenses.value)
+
+// Computed property for transactions with consolidation logic
+const transactionsWithConsolidation = computed(() => {
+  const { memoryRules } = useMemory()
+  const normalTransactions: TransactionWithMetadata[] = []
+  const consolidatedGroups: { [key: string]: TransactionWithMetadata[] } = {}
+  
+  // Separate transactions into normal and consolidated groups
+  for (const transaction of filteredTransactions.value) {
+    if (transaction.appliedFromMemory && transaction.memoryRuleId) {
+      const rule = memoryRules.value.find(r => r.id === transaction.memoryRuleId)
+      if (rule?.consolidar && rule.significado) {
+        // Group consolidatable transactions by rule ID
+        if (!consolidatedGroups[rule.id]) {
+          consolidatedGroups[rule.id] = []
+        }
+        consolidatedGroups[rule.id].push(transaction)
+      } else {
+        normalTransactions.push(transaction)
+      }
+    } else {
+      normalTransactions.push(transaction)
+    }
+  }
+  
+  // Create consolidated transactions and handle expansion
+  const consolidatedTransactions: TransactionWithMetadata[] = []
+  for (const [ruleId, transactions] of Object.entries(consolidatedGroups)) {
+    const rule = memoryRules.value.find(r => r.id === ruleId)
+    if (rule && transactions.length > 0) {
+      const isExpanded = expandedConsolidated.value.has(ruleId)
+      
+      if (isExpanded) {
+        // Show individual transactions when expanded
+        consolidatedTransactions.push(...transactions.map(t => ({
+          ...t,
+          isPartOfConsolidated: true,
+          consolidatedRuleId: ruleId
+        })))
+      } else {
+        // Show consolidated transaction when collapsed
+        const totalValue = transactions.reduce((sum, t) => sum + t.valor, 0)
+        const firstTransaction = transactions[0]
+        
+        const consolidatedTransaction: TransactionWithMetadata = {
+          ...firstTransaction,
+          descricao: `${rule.significado} - Consolidado`,
+          significado: `${rule.significado} - Consolidado`,
+          valor: totalValue,
+          tipo: totalValue >= 0 ? 'ENTRADA' : 'SAIDA',
+          appliedFromMemory: true,
+          memoryRuleId: ruleId,
+          isConsolidated: true,
+          consolidatedCount: transactions.length
+        }
+        
+        consolidatedTransactions.push(consolidatedTransaction)
+      }
+    }
+  }
+  
+  // Return normal transactions followed by consolidated ones
+  return [...normalTransactions, ...consolidatedTransactions]
+})
 
 // Validation for modal form
 const isValidSelection = computed(() => {
@@ -722,12 +1017,7 @@ function getPersonName(finalCartao?: string): string | null {
 
 function getClassificationText(classificationId: string): string {
   const classification = classifications.value.find(c => c.id === classificationId)
-  return classification ? classification.text : 'N/A'
-}
-
-function getClassificationEmoji(classificationId: string): string {
-  const classification = classifications.value.find(c => c.id === classificationId)
-  return classification ? classification.emoji : '❓'
+  return classification ? `${classification.emoji} ${classification.text}` : 'N/A'
 }
 
 function togglePeopleType(type: string, checked: boolean) {
@@ -743,13 +1033,35 @@ function togglePeopleType(type: string, checked: boolean) {
   }
 }
 
-function formatDate(date: string): string {
+function formatDate(date: string, extractId?: string): string {
   const [day, month, year] = date.split('/')
   if (!day || !month || !year) return date
   
-  const yearNum = year.length === 2 ? Number.parseInt(`20${year}`) : Number.parseInt(year)
+  let yearNum: number
+  if (year === 'xx') {
+    // Use the year from the extraction upload date
+    if (extractId) {
+      const extract = extracts.value.find(e => e.id === extractId)
+      if (extract) {
+        yearNum = new Date(extract.uploadedAt).getFullYear()
+      } else {
+        return `${day}/${month}/20xx`
+      }
+    } else {
+      return `${day}/${month}/20xx`
+    }
+  } else if (year.length === 2) {
+    yearNum = Number.parseInt(`20${year}`)
+  } else {
+    yearNum = Number.parseInt(year)
+  }
+  
+  if (isNaN(yearNum)) return date
+  
   const monthNum = Number.parseInt(month)
   const dayNum = Number.parseInt(day)
+  
+  if (isNaN(monthNum) || isNaN(dayNum)) return date
   
   return new Date(yearNum, monthNum - 1, dayNum).toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -763,6 +1075,17 @@ function formatCurrency(value: number): string {
     style: 'currency',
     currency: 'BRL'
   }).format(value)
+}
+
+// Handle transaction clicks
+function handleTransactionClick(transaction: TransactionWithMetadata) {
+  if (transaction.isConsolidated && transaction.memoryRuleId) {
+    // Toggle expansion for consolidated transactions
+    toggleConsolidatedExpansion(transaction.memoryRuleId)
+  } else {
+    // Open modal for normal transactions
+    openSignificadoModal(transaction)
+  }
 }
 
 // Significado modal functions
@@ -782,6 +1105,14 @@ function closeSignificadoModal() {
   newClassificationText.value = ''
   newClassificationEmoji.value = ''
   skipReason.value = ''
+  
+  // Reset advanced options
+  showAdvancedOptions.value = false
+  memoryIncludes.value = ''
+  memorySaveClassification.value = false
+  memorySaveSignificado.value = false
+  memoryConsolidar.value = false
+  editingMemoryRuleId.value = null
 }
 
 function selectClassification(classificationId: string) {
@@ -807,6 +1138,48 @@ async function createNewClassification() {
   }
 }
 
+async function createMemoryRule() {
+  if (!memoryIncludes.value.trim()) {
+    alert('Por favor, informe o texto para incluir na regra de memória')
+    return
+  }
+  
+  if (!memorySaveClassification.value && !memorySaveSignificado.value) {
+    alert('Por favor, selecione pelo menos uma opção para salvar (classificação ou significado)')
+    return
+  }
+  
+  try {
+    const rule = {
+      includes: memoryIncludes.value.trim(),
+      classificationId: memorySaveClassification.value && selectedClassificationId.value !== 'NEW' ? selectedClassificationId.value : undefined,
+      significado: memorySaveSignificado.value ? newSignificado.value.trim() : undefined,
+      consolidar: memoryConsolidar.value && memorySaveSignificado.value
+    }
+    
+    if (editingMemoryRuleId.value) {
+      // Update existing rule
+      await updateMemoryRule(editingMemoryRuleId.value, rule)
+      alert('Regra de memória atualizada com sucesso!')
+    } else {
+      // Create new rule
+      await addMemoryRule(rule)
+      alert('Regra de memória criada com sucesso! Agora transações similares serão classificadas automaticamente.')
+    }
+    
+    // Clear memory form
+    memoryIncludes.value = ''
+    memorySaveClassification.value = false
+    memorySaveSignificado.value = false
+    memoryConsolidar.value = false
+    editingMemoryRuleId.value = null
+    
+  } catch (error) {
+    console.error('Error creating/updating memory rule:', error)
+    alert('Erro ao criar/atualizar regra de memória')
+  }
+}
+
 async function saveSignificado() {
   if (!editingTransaction.value) return
   
@@ -819,7 +1192,6 @@ async function saveSignificado() {
     
     isSubmitting.value = true
     try {
-      const { skipTransaction } = useFinanceStore()
       await skipTransaction(
         editingTransaction.value.extractId, 
         editingTransaction.value.originalIndex, 
@@ -876,6 +1248,9 @@ async function saveSignificado() {
     // Save classification (required)
     await updateTransactionClassification(editingTransaction.value.extractId, transactionIndex, selectedClassificationId.value)
     
+    // Apply memory rules to other unclassified transactions
+    // This function is removed as per the edit hint.
+    
     closeSignificadoModal()
   } catch (error) {
     console.error('Error saving transaction:', error)
@@ -896,6 +1271,16 @@ function showSkipReason(transaction: TransactionWithMetadata) {
 
 // Row styling functions
 function getTransactionRowClasses(transaction: TransactionWithMetadata): string {
+  if (transaction.isConsolidated) {
+    // Consolidated transactions get purple gradient
+    return 'bg-gradient-to-r from-purple-200 to-purple-300 hover:from-purple-300 hover:to-purple-400'
+  }
+  
+  if (transaction.isPartOfConsolidated) {
+    // Individual transactions part of a consolidated group get lighter purple
+    return 'bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-150'
+  }
+  
   if (transaction.skipped) {
     // Skipped transactions get grey gradient
     return 'bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300'
@@ -928,9 +1313,9 @@ watch([selectedYear, selectedMonth], () => {
     })
     .filter(month => !isNaN(month))
   
-    if (!availableMonthsForYear.includes(selectedMonth.value)) {
-      selectedMonth.value = availableMonthsForYear[0] || 1
-    }
+  if (availableMonthsForYear.length > 0 && !availableMonthsForYear.includes(selectedMonth.value)) {
+    selectedMonth.value = availableMonthsForYear[0] || 1
+  }
   
   // Save user preferences when month/year changes
   saveUserPreferences()
@@ -962,9 +1347,11 @@ onMounted(() => {
     // Load saved user preferences first
     loadUserPreferences()
     
-    // If no saved preferences, try to use current year first
+    // If no saved preferences, try to use 2025 first (when the extraction was uploaded)
     if (!localStorage.getItem(STORAGE_KEYS.SELECTED_YEAR)) {
-      if (availableYears.value.includes(currentDate.getFullYear())) {
+      if (availableYears.value.includes(2025)) {
+        selectedYear.value = 2025
+      } else if (availableYears.value.includes(currentDate.getFullYear())) {
         selectedYear.value = currentDate.getFullYear()
       } else {
         selectedYear.value = availableYears.value[0] || currentDate.getFullYear()
@@ -983,9 +1370,11 @@ onMounted(() => {
       .filter(month => !isNaN(month))
     
     if (availableMonthsForYear.length > 0) {
-      // If no saved month preference, try to use current month if available for selected year
+      // If no saved month preference, try to use July first (when most transactions are)
       if (!localStorage.getItem(STORAGE_KEYS.SELECTED_MONTH)) {
-        if (selectedYear.value === currentDate.getFullYear() && 
+        if (selectedYear.value === 2025 && availableMonthsForYear.includes(7)) {
+          selectedMonth.value = 7
+        } else if (selectedYear.value === currentDate.getFullYear() && 
             availableMonthsForYear.includes(currentDate.getMonth() + 1)) {
           selectedMonth.value = currentDate.getMonth() + 1
         } else {
@@ -998,4 +1387,63 @@ onMounted(() => {
     saveUserPreferences()
   }
 })
+
+// Helper function to get memory rule text by ID
+function getMemoryRuleText(memoryRuleId: string): string {
+  const { memoryRules } = useMemory()
+  const rule = memoryRules.value.find(r => r.id === memoryRuleId)
+  return rule ? rule.includes : 'Regra não encontrada'
+}
+
+// Function to toggle expansion of consolidated transactions
+function toggleConsolidatedExpansion(memoryRuleId: string) {
+  if (expandedConsolidated.value.has(memoryRuleId)) {
+    expandedConsolidated.value.delete(memoryRuleId)
+  } else {
+    expandedConsolidated.value.add(memoryRuleId)
+  }
+}
+
+// Function to edit memory rule
+function editMemoryRule(memoryRuleId: string) {
+  const { memoryRules, updateMemoryRule } = useMemory()
+  const rule = memoryRules.value.find(r => r.id === memoryRuleId)
+  
+  if (rule) {
+    // Pre-fill the advanced options with the current rule
+    memoryIncludes.value = rule.includes
+    memorySaveClassification.value = !!rule.classificationId
+    memorySaveSignificado.value = !!rule.significado
+    memoryConsolidar.value = !!rule.consolidar
+    
+    // Also pre-fill the main form fields if they match the rule
+    if (rule.classificationId && rule.classificationId === selectedClassificationId.value) {
+      // Keep current selection
+    } else if (rule.classificationId) {
+      selectedClassificationId.value = rule.classificationId
+    }
+    
+    if (rule.significado && rule.significado === newSignificado.value) {
+      // Keep current value
+    } else if (rule.significado) {
+      newSignificado.value = rule.significado
+    }
+    
+    // Set the editing ID
+    editingMemoryRuleId.value = memoryRuleId
+    
+    // Show advanced options
+    showAdvancedOptions.value = true
+    
+    // Scroll to advanced options
+    nextTick(() => {
+      const advancedOptionsSection = document.querySelector('[data-advanced-options]')
+      if (advancedOptionsSection) {
+        advancedOptionsSection.scrollIntoView({ behavior: 'smooth' })
+      }
+    })
+  }
+}
+
+
 </script>

@@ -11,6 +11,15 @@ export interface Classification {
     createdAt: Date
 }
 
+export interface MemoryRule {
+    id: string
+    includes: string
+    classificationId?: string
+    significado?: string
+    consolidar?: boolean
+    createdAt: Date
+}
+
 export interface Transaction {
     tipo: 'ENTRADA' | 'SAIDA'
     cartao?: string
@@ -24,6 +33,8 @@ export interface Transaction {
     classificationId?: string
     skipped?: boolean
     skipReason?: string
+    appliedFromMemory?: boolean
+    memoryRuleId?: string
 }
 
 export interface ExtractResult {

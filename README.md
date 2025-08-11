@@ -21,13 +21,15 @@ Sistema de gestão financeira com processamento inteligente de extratos bancári
 - **Sistema de Classificações**: Categorização obrigatória de transações com emojis e texto personalizável
 - **Análise Flexível**: Transações são consideradas analisadas quando têm classificação (significado é opcional)
 - **Sistema de Ignorar Transações**: Possibilidade de marcar transações como ignoradas com motivo, excluindo-as dos cálculos financeiros
+- **💾 Sistema de Memória**: Regras automáticas que aplicam classificações e significados no frontend baseadas em padrões de descrição
+- **Aplicação Automática**: As regras de memória são aplicadas automaticamente na visualização, sem modificar os arquivos de extração
 - **Navegação Intuitiva**: Sidebar com navegação clara entre seções
 - **Transações Internacionais**: Marcação especial para compras no exterior
 - **Armazenamento em Arquivos**: Dados organizados em sistema de arquivos do servidor
 
 ## 🛠️ Tecnologias
 
-- **Nuxt 3**: Framework Vue.js
+- **Nuxt 3**: Framework Vue.js (atualizado de Nuxt 3 para resolver problemas de build)
 - **TypeScript**: Tipagem estática
 - **Tela AI**: Processamento de documentos
 - **node-qpdf2**: Decriptação de PDFs protegidos por senha
@@ -89,6 +91,8 @@ pnpm build
 │   ├── process-pdf.post.ts  # Processar PDF e retornar completionId
 │   ├── classifications.get.ts # Listar classificações
 │   ├── classifications.post.ts # Criar nova classificação
+│   ├── memory.get.ts         # Listar regras de memória
+│   ├── memory.post.ts        # Salvar regras de memória
 │   └── migrate.post.ts       # Migração de dados
 ├── storage/                  # Armazenamento de dados
 │   ├── banks.json            # Lista de bancos
@@ -96,6 +100,7 @@ pnpm build
 │   ├── cards.json            # Lista de cartões cadastrados
 │   ├── settings.json         # Configurações da aplicação
 │   ├── classifications.json  # Lista de classificações para transações
+│   ├── memory.json           # Regras de memória para classificação automática
 │   ├── pdf/                  # Cópias dos extratos em PDF
 │   ├── decryptedPDFs/        # PDFs decriptados (quando necessário)
 │   └── extractions/          # Extratos completos
@@ -253,6 +258,17 @@ O dashboard principal agora inclui uma tabela completa de transações com recur
 5. **Ignorar Transações**: Use o botão "Ignorar" para marcar transações como ignoradas (excluindo-as dos cálculos)
 6. **Analisar Resumo**: Veja os totais e saldo no rodapé da tabela
 
+### 💾 Como Usar o Sistema de Memória:
+1. **Abrir Modal de Análise**: Clique em qualquer transação não classificada
+2. **Acessar Opções Avançadas**: Clique no toggle "Opções Avançadas"
+3. **Configurar Regra de Memória**:
+   - Digite o texto que deve ser procurado na descrição (ex: "NETFLIX")
+   - Marque "Salvar classificação" se quiser aplicar a classificação selecionada
+   - Marque "Salvar significado" se quiser aplicar o significado definido
+4. **Criar Regra**: Clique em "💾 Criar Regra de Memória"
+5. **Aplicação Automática**: A partir de agora, transações similares serão classificadas automaticamente
+6. **Indicadores**: Transações aplicadas via memória mostram o ícone 💾 na coluna de classificação
+
 ### 🏷️ Sistema de Classificações:
 - **Classificações Existentes**: Selecione entre classificações pré-definidas (Alimentação 🍕, Transporte 🚗, etc.)
 - **Criar Novas**: Adicione classificações personalizadas com emoji e texto
@@ -273,6 +289,25 @@ O dashboard principal agora inclui uma tabela completa de transações com recur
   - Botão "Ver motivo" para visualizar o motivo da exclusão
 - **Persistência**: Preferência de mostrar/ocultar transações ignoradas é salva automaticamente
 - **Limpeza de Dados**: Ao ignorar, classificação e significado são automaticamente removidos
+
+### 💾 Sistema de Memória:
+- **Funcionalidade**: Regras automáticas que aplicam classificações e significados no frontend baseadas em padrões de descrição
+- **Aplicação Automática**: As regras são aplicadas automaticamente na visualização, sem modificar os arquivos de extração originais
+- **Acesso**: Dentro do modal de análise, clique em "Opções Avançadas" para criar/editar regras
+- **Configuração de Regras**:
+  - **Incluir quando a descrição contiver**: Texto que será procurado na descrição da transação
+  - **Salvar classificação**: Marque para aplicar automaticamente a classificação selecionada
+  - **Salvar significado**: Marque para aplicar automaticamente o significado definido
+- **Indicadores Visuais**: 
+  - 🧠 Ícone azul na descrição das transações que têm regras de memória aplicadas
+  - Informações da regra aplicada exibidas no modal de edição
+- **Edição de Regras**: Clique no botão "Editar Regra" no modal para modificar regras existentes
+- **Armazenamento**: Regras salvas em `storage/memory.json`
+- **Preservação de Dados**: Os arquivos de extração originais nunca são modificados pelas regras de memória
+- **Exemplos de Uso**:
+  - **NETFLIX**: Aplicar classificação "Entretenimento 🎬" e significado "Netflix"
+  - **UBER**: Aplicar classificação "Transporte 🚗" e significado "Uber"
+  - **IFOOD**: Aplicar classificação "Alimentação 🍕" e significado "iFood"
 
 ### 💾 Memória de Preferências:
 O sistema agora lembra automaticamente suas configurações:
