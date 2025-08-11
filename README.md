@@ -17,6 +17,10 @@ Sistema de gestão financeira com processamento inteligente de extratos bancári
 - **Suporte a PDFs Criptografados**: Decriptação automática de PDFs protegidos por senha
 - **Dashboard Financeiro**: Resumo com totais e estatísticas em cards informativos
 - **Tabela de Transações**: Visualização completa de transações com filtros por mês/ano e tipo de pessoa
+- **Significados Personalizados**: Nomes customizados opcionais para transações que substituem descrições originais
+- **Sistema de Classificações**: Categorização obrigatória de transações com emojis e texto personalizável
+- **Análise Flexível**: Transações são consideradas analisadas quando têm classificação (significado é opcional)
+- **Sistema de Ignorar Transações**: Possibilidade de marcar transações como ignoradas com motivo, excluindo-as dos cálculos financeiros
 - **Navegação Intuitiva**: Sidebar com navegação clara entre seções
 - **Transações Internacionais**: Marcação especial para compras no exterior
 - **Armazenamento em Arquivos**: Dados organizados em sistema de arquivos do servidor
@@ -79,13 +83,19 @@ pnpm build
 │   ├── extracts.get.ts       # Listar extratos
 │   ├── extracts.post.ts      # Salvar transações de um extrato
 │   ├── extracts/[completionId].get.ts # Obter resultado do processamento
+│   ├── extracts/[id]/transaction-significado.put.ts # Atualizar significado da transação
+│   ├── extracts/[id]/transaction-classification.put.ts # Atualizar classificação da transação
+│   ├── extracts/[id]/transaction-skip.put.ts # Marcar transação como ignorada
 │   ├── process-pdf.post.ts  # Processar PDF e retornar completionId
+│   ├── classifications.get.ts # Listar classificações
+│   ├── classifications.post.ts # Criar nova classificação
 │   └── migrate.post.ts       # Migração de dados
 ├── storage/                  # Armazenamento de dados
 │   ├── banks.json            # Lista de bancos
 │   ├── people.json           # Lista de pessoas/portadores
 │   ├── cards.json            # Lista de cartões cadastrados
 │   ├── settings.json         # Configurações da aplicação
+│   ├── classifications.json  # Lista de classificações para transações
 │   ├── pdf/                  # Cópias dos extratos em PDF
 │   ├── decryptedPDFs/        # PDFs decriptados (quando necessário)
 │   └── extractions/          # Extratos completos
@@ -174,6 +184,10 @@ O sistema processa extratos e organiza as transações em:
 - **Final do Cartão**: Últimos 4 dígitos do cartão de crédito
 - **Compra Internacional**: Indica se a transação foi feita no exterior
 - **Formato**: Tipo de operação (débito, crédito, etc.)
+- **Significado**: Nome personalizado opcional para a transação
+- **Classificação**: ID da classificação atribuída à transação
+- **Ignorada**: Flag indicando se a transação foi marcada como ignorada
+- **Motivo da Exclusão**: Texto explicando por que a transação foi ignorada
 
 ### Formato da Descrição:
 As descrições podem ser:
@@ -197,6 +211,9 @@ O dashboard principal agora inclui uma tabela completa de transações com recur
 - **Componentes TelaCheckbox**: Interface moderna usando componentes Tela para os filtros
 - **Exibição Melhorada**: Transações "Outro" mostram claramente "Sem cartão" ou "Cartão não salvo"
 - **💾 Memória de Preferências**: O sistema agora lembra automaticamente suas configurações de filtro e período selecionado
+- **✨ Significados Personalizados**: Clique em qualquer transação para definir um nome personalizado que substitui a descrição original
+- **🏷️ Sistema de Classificações**: Categorize transações com emojis e texto personalizável
+- **✅ Análise Completa**: Transações só são consideradas analisadas quando têm significado E classificação
 
 ### Funcionalidades da Tabela:
 - **Seleção de Período**: Filtros por mês e ano com dropdowns intuitivos
@@ -220,6 +237,8 @@ O dashboard principal agora inclui uma tabela completa de transações com recur
   - Badges coloridos para tipo de transação (verde=entrada, vermelho=saída)
   - Indicador de compra internacional
   - Formatação de cartão com últimos 4 dígitos
+  - **Classificações**: Badges azuis mostrando emoji e texto da classificação
+  - **Status de Análise**: Cores diferentes para transações analisadas (verde=completa, rosa=parcial)
 - **Resumo Financeiro**: Totais de entradas, saídas e saldo para o período selecionado
 - **Estado Vazio**: Mensagem informativa quando não há transações para o período
 
@@ -230,7 +249,30 @@ O dashboard principal agora inclui uma tabela completa de transações com recur
    - **Principal/Dependente/Externo**: Transações de pessoas cadastradas
    - **Outro**: Transações sem cartão ou com cartões não salvos
 3. **Visualizar Dados**: A tabela se atualiza automaticamente com as transações filtradas
-4. **Analisar Resumo**: Veja os totais e saldo no rodapé da tabela
+4. **Analisar Transações**: Clique em qualquer transação para abrir o modal de análise
+5. **Ignorar Transações**: Use o botão "Ignorar" para marcar transações como ignoradas (excluindo-as dos cálculos)
+6. **Analisar Resumo**: Veja os totais e saldo no rodapé da tabela
+
+### 🏷️ Sistema de Classificações:
+- **Classificações Existentes**: Selecione entre classificações pré-definidas (Alimentação 🍕, Transporte 🚗, etc.)
+- **Criar Novas**: Adicione classificações personalizadas com emoji e texto
+- **Análise Completa**: Uma transação só é considerada analisada quando tem significado E classificação
+- **Indicadores Visuais**: 
+  - 🟢 Verde: Transação completamente analisada (significado + classificação)
+  - 🟣 Rosa: Transação parcialmente analisada (apenas significado ou apenas classificação)
+  - ⚪ Branco: Transação não analisada
+
+### ⏭️ Sistema de Ignorar Transações:
+- **Funcionalidade**: Marque transações como ignoradas para excluí-las dos cálculos financeiros
+- **Motivo Obrigatório**: Sempre informe um motivo para ignorar a transação
+- **Exclusão Automática**: Transações ignoradas são automaticamente removidas dos totais de entrada/saída
+- **Filtro Configurável**: Checkbox para mostrar/ocultar transações ignoradas na tabela
+- **Indicadores Visuais**: 
+  - 🟤 Cinza: Transações ignoradas recebem gradiente cinza
+  - ⏭️ Badge "Ignorada" na coluna de classificação
+  - Botão "Ver motivo" para visualizar o motivo da exclusão
+- **Persistência**: Preferência de mostrar/ocultar transações ignoradas é salva automaticamente
+- **Limpeza de Dados**: Ao ignorar, classificação e significado são automaticamente removidos
 
 ### 💾 Memória de Preferências:
 O sistema agora lembra automaticamente suas configurações:
@@ -309,10 +351,11 @@ O sistema utiliza armazenamento em arquivos organizados hierarquicamente:
 - **Auto-adição**: Bancos detectados pela IA são automaticamente adicionados se não existirem
 
 ### Extrações
-- **Localização**: `storage/extractions/{bankId}/{filename}.json`
-- **Organização**: Agrupadas por banco
-- **Estrutura**: Cada arquivo contém um extrato completo com todas as transações
-- **Exemplo**: `storage/extractions/bank-uuid/extract-2025-01-15T10-30-45.json`
+- **Localização**: `storage/extractions/{filename}.json`
+- **Organização**: Arquivos planos com campo `bankId` para relacionamento
+- **Estrutura**: Cada arquivo contém um extrato completo com todas as transações e referência ao banco
+- **Exemplo**: `storage/extractions/{uuid}.json`
+- **Relacionamento**: Campo `bankId` referencia `storage/banks.json`
 - **Frontend**: A divisão por meses é feita dinamicamente no frontend
 
 ### Pessoas e Cartões
@@ -331,6 +374,7 @@ O sistema utiliza armazenamento em arquivos organizados hierarquicamente:
 - **Endpoint**: `POST /api/migrate`
 - **Uso**: Para migrar dados do localStorage para o novo sistema
 - **Formato**: Envie `{ banks: [], extracts: [] }` no body da requisição
+- **Nota**: O sistema automaticamente migra arquivos de extrato antigos (nomenclatura baseada em timestamp) para a nova nomenclatura baseada em UUID
 
 ## 👥 Gestão de Pessoas e Cartões
 

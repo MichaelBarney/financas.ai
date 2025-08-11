@@ -18,35 +18,44 @@ export default defineEventHandler(async (event) => {
             return []
         }
 
-        // Read all bank directories
-        const banks = await fs.readdir(extractionsDir)
+        // Read all extraction files directly from extractions directory
+        const files = await fs.readdir(extractionsDir)
 
-        for (const bankDir of banks) {
-            const bankPath = join(extractionsDir, bankDir)
-            const stat = await fs.stat(bankPath)
-
-            if (!stat.isDirectory())
+        for (const file of files) {
+            if (!file.endsWith('.json'))
                 continue
+
+            const filePath = join(extractionsDir, file)
+            const stat = await fs.stat(filePath)
+
+            if (!stat.isFile())
+                continue
+
+            const fileData = await fs.readFile(filePath, 'utf-8')
+            const extract: SavedExtract = JSON.parse(fileData)
+
+            // For old timestamp-based filenames, ensure the ID matches the filename
+            // This handles the transition from old to new naming convention
+            if (file.startsWith('extract-') && file !== `${extract.id}.json`) {
+                // Update the filename to match the extract ID
+                const newFilePath = join(extractionsDir, `${extract.id}.json`)
+                try {
+                    await fs.rename(filePath, newFilePath)
+                    console.log(`[INFO] Renamed extract file from ${file} to ${extract.id}.json`)
+                }
+                catch (renameError) {
+                    console.warn(`[WARN] Failed to rename extract file ${file}:`, renameError)
+                }
+            }
 
             // Filter by bankId if specified
-            if (bankId && bankDir !== bankId)
+            if (bankId && extract.bankId !== bankId)
                 continue
 
-            const files = await fs.readdir(bankPath)
+            // Convert date strings back to Date objects
+            extract.uploadedAt = new Date(extract.uploadedAt)
 
-            for (const file of files) {
-                if (!file.endsWith('.json'))
-                    continue
-
-                const filePath = join(bankPath, file)
-                const fileData = await fs.readFile(filePath, 'utf-8')
-                const extract: SavedExtract = JSON.parse(fileData)
-
-                // Convert date strings back to Date objects
-                extract.uploadedAt = new Date(extract.uploadedAt)
-
-                extracts.push(extract)
-            }
+            extracts.push(extract)
         }
 
         return extracts

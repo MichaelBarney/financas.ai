@@ -78,21 +78,38 @@ export async function checkForDuplicateExtract(
 async function findExtractFilesByBank(bankId: string): Promise<string[]> {
     const files: string[] = []
     const extractionsDir = join(process.cwd(), 'storage', 'extractions')
-    const bankDir = join(extractionsDir, bankId)
 
     try {
-        // Check if bank directory exists
-        await fs.access(bankDir)
-        const bankFiles = await fs.readdir(bankDir)
+        // Read all extraction files and filter by bankId
+        const allFiles = await fs.readdir(extractionsDir)
 
-        for (const file of bankFiles) {
-            if (file.endsWith('.json')) {
-                files.push(join(bankDir, file))
+        for (const file of allFiles) {
+            if (!file.endsWith('.json'))
+                continue
+
+            const filePath = join(extractionsDir, file)
+            const stat = await fs.stat(filePath)
+
+            if (!stat.isFile())
+                continue
+
+            try {
+                const fileData = await fs.readFile(filePath, 'utf-8')
+                const extract: SavedExtract = JSON.parse(fileData)
+
+                // Only include files that belong to the specified bank
+                if (extract.bankId === bankId) {
+                    files.push(filePath)
+                }
+            }
+            catch (error) {
+                console.warn(`[WARN] Error reading extract file ${filePath}:`, error)
+                // Continue checking other files
             }
         }
     }
     catch (error) {
-        // Bank directory doesn't exist yet - this is normal for first upload
+        // Extractions directory doesn't exist yet - this is normal for first upload
     }
 
     return files

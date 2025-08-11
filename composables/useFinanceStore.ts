@@ -1,9 +1,10 @@
-import type { Bank, SavedExtract, ExtractResult, Person, Card } from '~/types'
+import type { Bank, SavedExtract, ExtractResult, Person, Card, Classification } from '~/types'
 
 const banks = ref<Bank[]>([])
 const extracts = ref<SavedExtract[]>([])
 const people = ref<Person[]>([])
 const cards = ref<Card[]>([])
+const classifications = ref<Classification[]>([])
 const settings = ref<{ primaryPersonId: string | null }>({ primaryPersonId: null })
 const isLoaded = ref(false)
 
@@ -29,6 +30,10 @@ export function useFinanceStore() {
             // Load cards
             const cardsData = await $fetch<Card[]>('/api/cards')
             cards.value = cardsData
+
+            // Load classifications
+            const classificationsData = await $fetch<Classification[]>('/api/classifications')
+            classifications.value = classificationsData
 
             // Load settings
             const settingsData = await $fetch<{ primaryPersonId: string | null }>('/api/settings')
@@ -390,11 +395,105 @@ export function useFinanceStore() {
         }
     }
 
+    const updateTransactionSignificado = async (extractId: string, transactionIndex: number, significado: string) => {
+        try {
+            await $fetch(`/api/extracts/${extractId}/transaction-significado`, {
+                method: 'PUT',
+                body: { transactionIndex, significado },
+            })
+
+            // Update local state
+            const extractIndex = extracts.value.findIndex(e => e.id === extractId)
+            if (extractIndex !== -1 && extracts.value[extractIndex]?.data?.transacoes?.[transactionIndex]) {
+                if (significado.trim() === '') {
+                    delete extracts.value[extractIndex].data.transacoes[transactionIndex].significado
+                }
+                else {
+                    extracts.value[extractIndex].data.transacoes[transactionIndex].significado = significado
+                }
+            }
+
+            return true
+        }
+        catch (error) {
+            console.error('Error updating transaction significado:', error)
+            throw error
+        }
+    }
+
+    const addClassification = async (text: string, emoji: string) => {
+        try {
+            const newClassification = await $fetch<Classification>('/api/classifications', {
+                method: 'POST',
+                body: { text, emoji },
+            })
+
+            // Update local state
+            const existingIndex = classifications.value.findIndex(c => c.id === newClassification.id)
+            if (existingIndex === -1) {
+                classifications.value.push(newClassification)
+            }
+
+            return newClassification
+        }
+        catch (error) {
+            console.error('Error adding classification:', error)
+            throw error
+        }
+    }
+
+    const updateTransactionClassification = async (extractId: string, transactionIndex: number, classificationId: string) => {
+        try {
+            await $fetch(`/api/extracts/${extractId}/transaction-classification`, {
+                method: 'PUT',
+                body: { transactionIndex, classificationId },
+            })
+
+            // Update local state
+            const extractIndex = extracts.value.findIndex(e => e.id === extractId)
+            if (extractIndex !== -1 && extracts.value[extractIndex]?.data?.transacoes?.[transactionIndex]) {
+                extracts.value[extractIndex].data.transacoes[transactionIndex].classificationId = classificationId
+            }
+
+            return true
+        }
+        catch (error) {
+            console.error('Error updating transaction classification:', error)
+            throw error
+        }
+    }
+
+    const skipTransaction = async (extractId: string, transactionIndex: number, skipReason: string) => {
+        try {
+            await $fetch(`/api/extracts/${extractId}/transaction-skip`, {
+                method: 'PUT',
+                body: { transactionIndex, skipReason },
+            })
+
+            // Update local state
+            const extractIndex = extracts.value.findIndex(e => e.id === extractId)
+            if (extractIndex !== -1 && extracts.value[extractIndex]?.data?.transacoes?.[transactionIndex]) {
+                extracts.value[extractIndex].data.transacoes[transactionIndex].skipped = true
+                extracts.value[extractIndex].data.transacoes[transactionIndex].skipReason = skipReason
+                // Clear classification and significado when skipping
+                delete extracts.value[extractIndex].data.transacoes[transactionIndex].classificationId
+                delete extracts.value[extractIndex].data.transacoes[transactionIndex].significado
+            }
+
+            return true
+        }
+        catch (error) {
+            console.error('Error skipping transaction:', error)
+            throw error
+        }
+    }
+
     return {
         banks: readonly(banks),
         extracts: readonly(extracts),
         people: readonly(people),
         cards: readonly(cards),
+        classifications: readonly(classifications),
         settings: readonly(settings),
         addBank,
         removeBank,
@@ -407,6 +506,10 @@ export function useFinanceStore() {
         removeCard,
         getPrincipalPerson,
         setPrimaryPerson,
+        updateTransactionSignificado,
+        addClassification,
+        updateTransactionClassification,
+        skipTransaction,
         getExtractsByMonth,
         getExtractsByBank,
         getTransactionsByMonth,

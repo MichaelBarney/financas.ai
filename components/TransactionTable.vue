@@ -31,6 +31,17 @@
       <div class="mt-4 flex flex-wrap gap-3">
         <label class="flex items-center gap-2">
           <TelaCheckbox 
+            :model-value="showSkippedTransactions"
+            @update:model-value="(checked) => showSkippedTransactions = checked"
+            size="md"
+          />
+          <span class="text-sm text-gray-700">Mostrar transações ignoradas</span>
+        </label>
+        
+        <div class="w-px h-6 bg-gray-300"></div>
+        
+        <label class="flex items-center gap-2">
+          <TelaCheckbox 
             :model-value="selectedPeopleTypes.includes('Principal')"
             @update:model-value="(checked) => togglePeopleType('Principal', checked)"
             size="md"
@@ -82,13 +93,16 @@
               Banco
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Cartão
+              Tipo
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Pessoa
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Tipo
+              Operação
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Classificação
             </th>
             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               Valor
@@ -98,32 +112,60 @@
         <tbody class="bg-white divide-y divide-gray-200">
           <tr 
             v-for="transaction in filteredTransactions" 
-            :key="`${transaction.extractId}-${transaction.data}-${transaction.descricao}`"
-            class="hover:bg-gray-50"
+            :key="`${transaction.extractId}-${transaction.originalIndex}`"
+            :class="[
+              'hover:bg-gray-50 cursor-pointer transition-colors',
+              getTransactionRowClasses(transaction)
+            ]"
+            @click="openSignificadoModal(transaction)"
           >
+          <!-- Data -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
               {{ formatDate(transaction.data) }}
             </td>
+            <!-- Descrição -->
             <td class="px-6 py-4 text-sm text-gray-900">
               <div>
-                <p class="font-medium">{{ getTransactionDescription(transaction.descricao) }}</p>
-                <p v-if="getTransactionAccount(transaction.descricao)" class="text-xs text-gray-500">
+                <p v-if="transaction.significado" class="text-purple-600 font-medium">
+                   {{ transaction.significado }} ✨
+                </p>
+                <p v-else class="font-medium">{{ getTransactionDescription(transaction) }}</p>
+                <p v-if="getTransactionAccount(transaction.descricao) && getTransactionAccount(transaction.descricao) !== 'N/A'" class="text-xs text-gray-500">
                   {{ getTransactionAccount(transaction.descricao) }}
                 </p>
+
               </div>
             </td>
+            <!-- Banco -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
               {{ transaction.banco }}
             </td>
+            <!-- Tipo -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-              <div v-if="transaction.finalCartao && transaction.finalCartao !== 'N/A'" class="flex items-center gap-2">
-                <Icon name="heroicons:credit-card" class="w-4 h-4 text-gray-400" />
-                <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                  **** {{ transaction.finalCartao }}
+              <div v-if="transaction.formato === 'CREDITO' || transaction.formato === 'DEBITO'">
+                <div v-if="transaction.finalCartao && transaction.finalCartao !== 'N/A'" class="flex items-center gap-2">
+                  <Icon name="heroicons:credit-card" class="w-4 h-4 text-gray-400" />
+                  <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                    **** {{ transaction.finalCartao }}
+                  </span>
+                </div>
+                <span v-else class="text-gray-400">-</span>
+              </div>
+              <div v-else-if="transaction.formato === 'PIX'" class="flex items-center gap-2">
+                <Icon name="heroicons:device-phone-mobile" class="w-4 h-4 text-green-500" />
+                <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                  PIX
                 </span>
               </div>
-              <span v-else class="text-gray-400">-</span>
+              <div v-else-if="transaction.formato === 'TRANSFERENCIA_TRADICIONAL'" class="flex items-center gap-2">
+                <Icon name="heroicons:arrow-path" class="w-4 h-4 text-purple-500" />
+                <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                  Transferência
+                </span>
+              </div>
+              <div v-else class="text-gray-400">-</div>
             </td>
+            <!-- Pessoa -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
               <span v-if="getPersonName(transaction.finalCartao)" class="text-gray-900">
                 {{ getPersonName(transaction.finalCartao) }}
@@ -135,6 +177,7 @@
                 Cartão não salvo
               </span>
             </td>
+            <!-- Operação -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
               <div class="flex items-center gap-2">
                 <span 
@@ -156,6 +199,32 @@
                 </span>
               </div>
             </td>
+            <!-- Classificação -->
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              <div v-if="transaction.skipped" class="flex items-center gap-2">
+                <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+                  ⏭️ Ignorada
+                </span>
+                <button
+                  @click.stop="showSkipReason(transaction)"
+                  class="text-xs text-gray-500 hover:text-gray-700 underline"
+                  title="Ver motivo"
+                >
+                  Ver motivo
+                </button>
+              </div>
+              <div v-else-if="transaction.classificationId" class="flex items-center gap-2">
+                <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                  {{ getClassificationEmoji(transaction.classificationId) }} {{ getClassificationText(transaction.classificationId) }}
+                </span>
+              </div>
+              <div v-else class="flex items-center gap-2">
+                <span class="text-gray-400 text-xs italic">
+                  Não classificada
+                </span>
+              </div>
+            </td>
+            <!-- Valor -->
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
               <span 
                 :class="[
@@ -187,6 +256,9 @@
           <span class="text-gray-600">
             Total de transações: <span class="font-medium text-gray-900">{{ filteredTransactions.length }}</span>
           </span>
+          <span v-if="filteredTransactions.some(t => t.skipped)" class="text-gray-500">
+            Ignoradas: <span class="font-medium">{{ filteredTransactions.filter(t => t.skipped).length }}</span>
+          </span>
           <span class="text-green-600">
             Entradas: <span class="font-medium">{{ formatCurrency(totalIncome) }}</span>
           </span>
@@ -199,6 +271,169 @@
         </div>
       </div>
     </div>
+
+    <!-- Significado Modal -->
+    <div v-if="showSignificadoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900">
+            {{ editingTransaction?.classificationId ? 'Editar Transação' : 'Analisar Transação' }}
+          </h3>
+          <button
+            @click="closeSignificadoModal"
+            class="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <Icon name="heroicons:x-mark" class="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div class="mb-4">
+          <p class="text-sm text-gray-600 mb-2">Transação:</p>
+          <div class="bg-gray-50 p-3 rounded-lg">
+            <p class="font-medium text-gray-900">{{ editingTransaction ? getTransactionDescription(editingTransaction) : '' }}</p>
+            <p class="text-sm text-gray-600">{{ editingTransaction ? `${formatDate(editingTransaction.data)} - ${formatCurrency(editingTransaction.valor)}` : '' }}</p>
+          </div>
+        </div>
+
+        <form @submit.prevent="saveSignificado" class="space-y-4">
+          <div>
+            <label for="significado" class="block text-sm font-medium text-gray-700 mb-2">
+              Significado (Nome personalizado) - Opcional
+            </label>
+            <input
+              id="significado"
+              v-model="newSignificado"
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Deixe em branco para usar a descrição original"
+            />
+            <p class="text-xs text-gray-500 mt-1">
+              Se preenchido, este nome substituirá a descrição original da transação
+            </p>
+          </div>
+
+          <div>
+            <label for="classification" class="block text-sm font-medium text-gray-700 mb-2">
+              Classificação <span class="text-red-500">*</span>
+            </label>
+            <div class="space-y-3">
+              <!-- Existing classifications -->
+              <div v-if="classifications.length > 0" class="grid grid-cols-2 gap-2">
+                <button
+                  v-for="classification in classifications"
+                  :key="classification.id"
+                  type="button"
+                  @click="selectClassification(classification.id)"
+                  :class="[
+                    'flex items-center gap-2 px-3 py-2 border rounded-lg text-sm transition-colors',
+                    selectedClassificationId === classification.id
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-300 hover:border-gray-400'
+                  ]"
+                >
+                  <span class="text-lg">{{ classification.emoji }}</span>
+                  <span>{{ classification.text }}</span>
+                </button>
+                
+                <!-- Ignorar option - bottom left -->
+                <button
+                  type="button"
+                  @click="selectClassification('IGNORE')"
+                  :class="[
+                    'flex items-center gap-2 px-3 py-2 border rounded-lg text-sm transition-colors',
+                    selectedClassificationId === 'IGNORE'
+                      ? 'border-red-500 bg-red-50 text-red-700'
+                      : 'border-gray-300 hover:border-gray-400 text-gray-600'
+                  ]"
+                >
+                  <span class="text-lg">⏭️</span>
+                  <span>Ignorar</span>
+                </button>
+                
+                <!-- Nova option - bottom right -->
+                <button
+                  type="button"
+                  @click="selectClassification('NEW')"
+                  :class="[
+                    'flex items-center gap-2 px-3 py-2 border rounded-lg text-sm transition-colors',
+                    selectedClassificationId === 'NEW'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-300 hover:border-gray-400'
+                  ]"
+                >
+                  <span class="text-lg">➕</span>
+                  <span>Nova</span>
+                </button>
+              </div>
+              
+              <!-- Create new classification - only show when "Nova" is selected -->
+              <div v-if="selectedClassificationId === 'NEW'" class="border-t pt-3">
+                <p class="text-xs text-gray-600 mb-2">Criar nova classificação:</p>
+                <div class="flex gap-2">
+                  <input
+                    v-model="newClassificationText"
+                    type="text"
+                    placeholder="Nome da classificação"
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    v-model="newClassificationEmoji"
+                    type="text"
+                    placeholder="😊"
+                    maxlength="2"
+                    class="w-16 px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    @click="createNewClassification"
+                    :disabled="!newClassificationText || !newClassificationEmoji"
+                    class="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    Criar
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Skip reason input - only show when "Ignorar" is selected -->
+              <div v-if="selectedClassificationId === 'IGNORE'" class="border-t pt-3">
+                <div>
+                  <label for="modalSkipReason" class="block text-sm font-medium text-gray-700 mb-2">
+                    Motivo para ignorar <span class="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="modalSkipReason"
+                    v-model="skipReason"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                    placeholder="Por exemplo: Transação duplicada, valor incorreto, etc."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Remove the old skip transaction section since it's now integrated above -->
+
+          <div class="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              @click="closeSignificadoModal"
+              class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              :disabled="isSubmitting || !isValidSelection"
+              class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+            >
+              {{ isSubmitting ? 'Salvando...' : 'Salvar' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -210,9 +445,10 @@ interface TransactionWithMetadata extends Transaction {
   bankId: string
   extractId: string
   banco: string
+  originalIndex: number
 }
 
-const { extracts, people, cards } = useFinanceStore()
+const { extracts, people, cards, classifications, updateTransactionSignificado, updateTransactionClassification, addClassification } = useFinanceStore()
 
 // Month/Year selection
 const currentDate = new Date()
@@ -222,11 +458,27 @@ const selectedMonth = ref(currentDate.getMonth() + 1) // Default to current mont
 // People type filtering
 const selectedPeopleTypes = ref<string[]>(['Principal', 'Dependente', 'Externo', 'Outro'])
 
+// Skip transactions filter
+const showSkippedTransactions = ref(true)
+
+// Significado modal state
+const showSignificadoModal = ref(false)
+const editingTransaction = ref<TransactionWithMetadata | null>(null)
+const newSignificado = ref('')
+const selectedClassificationId = ref<string>('')
+const newClassificationText = ref('')
+const newClassificationEmoji = ref('')
+const isSubmitting = ref(false)
+
+// Skip transaction state
+const skipReason = ref('')
+
 // Storage keys for remembering user preferences
 const STORAGE_KEYS = {
   SELECTED_YEAR: 'financas-ai-selected-year',
   SELECTED_MONTH: 'financas-ai-selected-month',
-  SELECTED_PEOPLE_TYPES: 'financas-ai-selected-people-types'
+  SELECTED_PEOPLE_TYPES: 'financas-ai-selected-people-types',
+  SHOW_SKIPPED_TRANSACTIONS: 'financas-ai-show-skipped-transactions'
 }
 
 // Functions to save and load user preferences
@@ -235,6 +487,7 @@ function saveUserPreferences() {
     localStorage.setItem(STORAGE_KEYS.SELECTED_YEAR, selectedYear.value.toString())
     localStorage.setItem(STORAGE_KEYS.SELECTED_MONTH, selectedMonth.value.toString())
     localStorage.setItem(STORAGE_KEYS.SELECTED_PEOPLE_TYPES, JSON.stringify(selectedPeopleTypes.value))
+    localStorage.setItem(STORAGE_KEYS.SHOW_SKIPPED_TRANSACTIONS, showSkippedTransactions.value.toString())
   }
 }
 
@@ -289,6 +542,12 @@ function loadUserPreferences() {
         console.warn('Failed to parse saved people types:', e)
       }
     }
+
+    // Load show skipped transactions preference
+    const savedShowSkipped = localStorage.getItem(STORAGE_KEYS.SHOW_SKIPPED_TRANSACTIONS)
+    if (savedShowSkipped) {
+      showSkippedTransactions.value = JSON.parse(savedShowSkipped)
+    }
   }
 }
 
@@ -341,7 +600,7 @@ const filteredTransactions = computed(() => {
   const transactions: TransactionWithMetadata[] = []
   
   extracts.value.forEach(extract => {
-    extract.data.transacoes.forEach(transaction => {
+    extract.data.transacoes.forEach((transaction, index) => {
       const [day, month, year] = transaction.data.split('/')
       if (!day || !month || !year) return
       
@@ -369,15 +628,22 @@ const filteredTransactions = computed(() => {
             ...transaction,
             bankId: extract.bankId,
             extractId: extract.id,
-            banco: extract.data.banco
+            banco: extract.data.banco,
+            originalIndex: index
           })
         }
       }
     })
   })
   
+  // Filter out skipped transactions if the filter is disabled
+  let filteredTransactions = transactions
+  if (!showSkippedTransactions.value) {
+    filteredTransactions = transactions.filter(t => !t.skipped)
+  }
+  
   // Sort from oldest to newest
-  return transactions.sort((a, b) => {
+  return filteredTransactions.sort((a, b) => {
     const [dayA, monthA, yearA] = a.data.split('/')
     const [dayB, monthB, yearB] = b.data.split('/')
     
@@ -392,24 +658,44 @@ const filteredTransactions = computed(() => {
 // Computed totals
 const totalIncome = computed(() => {
   return filteredTransactions.value
-    .filter(t => t.tipo === 'ENTRADA')
+    .filter(t => t.tipo === 'ENTRADA' && !t.skipped)
     .reduce((sum, t) => sum + t.valor, 0)
 })
 
 const totalExpenses = computed(() => {
   return filteredTransactions.value
-    .filter(t => t.tipo === 'SAIDA')
+    .filter(t => t.tipo === 'SAIDA' && !t.skipped)
     .reduce((sum, t) => sum + t.valor, 0)
 })
 
 const balance = computed(() => totalIncome.value - totalExpenses.value)
 
-// Helper functions
-function getTransactionDescription(descricao: string | { nome: string; conta: string }): string {
-  if (typeof descricao === 'string') {
-    return descricao
+// Validation for modal form
+const isValidSelection = computed(() => {
+  if (!selectedClassificationId.value) return false
+  
+  if (selectedClassificationId.value === 'IGNORE') {
+    return skipReason.value.trim().length > 0
   }
-  return descricao.nome
+  
+  if (selectedClassificationId.value === 'NEW') {
+    return newClassificationText.value.trim().length > 0 && newClassificationEmoji.value.trim().length > 0
+  }
+  
+  return true
+})
+
+// Helper functions
+function getTransactionDescription(transaction: TransactionWithMetadata): string {
+  // Priority: significado > descricao
+  if (transaction.significado) {
+    return transaction.significado
+  }
+  
+  if (typeof transaction.descricao === 'string') {
+    return transaction.descricao
+  }
+  return transaction.descricao.nome
 }
 
 function getTransactionAccount(descricao: string | { nome: string; conta: string }): string | null {
@@ -432,6 +718,16 @@ function getPersonByCard(finalCartao?: string): Person | null {
 function getPersonName(finalCartao?: string): string | null {
   const person = getPersonByCard(finalCartao)
   return person ? person.name : null
+}
+
+function getClassificationText(classificationId: string): string {
+  const classification = classifications.value.find(c => c.id === classificationId)
+  return classification ? classification.text : 'N/A'
+}
+
+function getClassificationEmoji(classificationId: string): string {
+  const classification = classifications.value.find(c => c.id === classificationId)
+  return classification ? classification.emoji : '❓'
 }
 
 function togglePeopleType(type: string, checked: boolean) {
@@ -469,6 +765,155 @@ function formatCurrency(value: number): string {
   }).format(value)
 }
 
+// Significado modal functions
+function openSignificadoModal(transaction: TransactionWithMetadata) {
+  editingTransaction.value = transaction
+  newSignificado.value = transaction.significado || ''
+  selectedClassificationId.value = transaction.classificationId || ''
+  skipReason.value = ''
+  showSignificadoModal.value = true
+}
+
+function closeSignificadoModal() {
+  showSignificadoModal.value = false
+  editingTransaction.value = null
+  newSignificado.value = ''
+  selectedClassificationId.value = ''
+  newClassificationText.value = ''
+  newClassificationEmoji.value = ''
+  skipReason.value = ''
+}
+
+function selectClassification(classificationId: string) {
+  selectedClassificationId.value = classificationId
+}
+
+async function createNewClassification() {
+  if (!newClassificationText.value.trim() || !newClassificationEmoji.value.trim()) return
+  
+  try {
+    await addClassification(newClassificationText.value.trim(), newClassificationEmoji.value.trim())
+    // Get the newly created classification ID and select it
+    const newClassification = classifications.value[classifications.value.length - 1]
+    if (newClassification) {
+      selectedClassificationId.value = newClassification.id
+      // Clear the input fields
+      newClassificationText.value = ''
+      newClassificationEmoji.value = ''
+    }
+  } catch (error) {
+    console.error('Error creating classification:', error)
+    alert('Erro ao criar classificação')
+  }
+}
+
+async function saveSignificado() {
+  if (!editingTransaction.value) return
+  
+  // Handle "IGNORE" option
+  if (selectedClassificationId.value === 'IGNORE') {
+    if (!skipReason.value.trim()) {
+      alert('Por favor, informe um motivo para ignorar a transação')
+      return
+    }
+    
+    isSubmitting.value = true
+    try {
+      const { skipTransaction } = useFinanceStore()
+      await skipTransaction(
+        editingTransaction.value.extractId, 
+        editingTransaction.value.originalIndex, 
+        skipReason.value.trim()
+      )
+      closeSignificadoModal()
+    } catch (error) {
+      console.error('Error skipping transaction:', error)
+      alert('Erro ao ignorar transação')
+    } finally {
+      isSubmitting.value = false
+    }
+    return
+  }
+  
+  // Handle "NEW" option - create classification first
+  if (selectedClassificationId.value === 'NEW') {
+    if (!newClassificationText.value.trim() || !newClassificationEmoji.value.trim()) {
+      alert('Por favor, preencha o nome e emoji da nova classificação')
+      return
+    }
+    
+    try {
+      await addClassification(newClassificationText.value.trim(), newClassificationEmoji.value.trim())
+      // Get the newly created classification ID
+      const newClassification = classifications.value[classifications.value.length - 1]
+      if (newClassification) {
+        selectedClassificationId.value = newClassification.id
+      } else {
+        alert('Erro ao criar classificação')
+        return
+      }
+    } catch (error) {
+      console.error('Error creating classification:', error)
+      alert('Erro ao criar classificação')
+      return
+    }
+  }
+  
+  // Regular classification save
+  if (!selectedClassificationId.value || selectedClassificationId.value === 'NEW') {
+    alert('Por favor, selecione uma classificação válida')
+    return
+  }
+  
+  isSubmitting.value = true
+  try {
+    // Use the original transaction index
+    const transactionIndex = editingTransaction.value.originalIndex
+    
+    // Save significado (can be empty to clear the field)
+    await updateTransactionSignificado(editingTransaction.value.extractId, transactionIndex, newSignificado.value.trim())
+    
+    // Save classification (required)
+    await updateTransactionClassification(editingTransaction.value.extractId, transactionIndex, selectedClassificationId.value)
+    
+    closeSignificadoModal()
+  } catch (error) {
+    console.error('Error saving transaction:', error)
+    alert('Erro ao salvar transação')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+// Skip transaction functions
+function showSkipReason(transaction: TransactionWithMetadata) {
+  if (transaction.skipReason && transaction.skipReason.trim()) {
+    alert(`Motivo para ignorar: ${transaction.skipReason}`)
+  } else {
+    alert('Nenhum motivo informado para ignorar esta transação')
+  }
+}
+
+// Row styling functions
+function getTransactionRowClasses(transaction: TransactionWithMetadata): string {
+  if (transaction.skipped) {
+    // Skipped transactions get grey gradient
+    return 'bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300'
+  }
+  
+  if (transaction.classificationId) {
+    // Fully analyzed transaction (has classification, may or may not have significado)
+    if (transaction.tipo === 'SAIDA') {
+      // Saída (outgoing) transactions get purple/red gradient
+      return 'bg-gradient-to-r from-purple-50 to-red-50 hover:from-purple-100 hover:to-red-100'
+    } else {
+      // Entrada (incoming) transactions get green/blue gradient
+      return 'bg-gradient-to-r from-green-50 to-blue-50 hover:from-green-100 hover:to-blue-100'
+    }
+  }
+  return ''
+}
+
 // Watch for changes and update available months
 watch([selectedYear, selectedMonth], () => {
   // Ensure selected month is available for selected year
@@ -483,9 +928,9 @@ watch([selectedYear, selectedMonth], () => {
     })
     .filter(month => !isNaN(month))
   
-  if (!availableMonthsForYear.includes(selectedMonth.value)) {
-    selectedMonth.value = availableMonthsForYear[0] || 1
-  }
+    if (!availableMonthsForYear.includes(selectedMonth.value)) {
+      selectedMonth.value = availableMonthsForYear[0] || 1
+    }
   
   // Save user preferences when month/year changes
   saveUserPreferences()
@@ -496,6 +941,12 @@ watch(selectedPeopleTypes, () => {
   // Save user preferences when filter changes
   saveUserPreferences()
 }, { deep: true })
+
+// Watch for changes in skip filter
+watch(showSkippedTransactions, () => {
+  // Save user preferences when filter changes
+  saveUserPreferences()
+})
 
 // Watch for changes in extracts to reload preferences when new data is available
 watch(extracts, () => {
@@ -516,7 +967,7 @@ onMounted(() => {
       if (availableYears.value.includes(currentDate.getFullYear())) {
         selectedYear.value = currentDate.getFullYear()
       } else {
-        selectedYear.value = availableYears.value[0]
+        selectedYear.value = availableYears.value[0] || currentDate.getFullYear()
       }
     }
     

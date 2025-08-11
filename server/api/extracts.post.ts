@@ -26,10 +26,9 @@ export default defineEventHandler(async (event) => {
             })
         }
 
-        // Create directory structure: storage/extractions/bankId/
+        // Create extractions directory if it doesn't exist
         const extractionsDir = join(process.cwd(), 'storage', 'extractions')
-        const bankDir = join(extractionsDir, bankId)
-        await fs.mkdir(bankDir, { recursive: true })
+        await fs.mkdir(extractionsDir, { recursive: true })
 
         // Create extract object with all transactions
         const extract: SavedExtract = {
@@ -39,10 +38,9 @@ export default defineEventHandler(async (event) => {
             uploadedAt: new Date(),
         }
 
-        // Generate filename with timestamp to avoid conflicts
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-        const filename = `extract-${timestamp}.json`
-        const filePath = join(bankDir, filename)
+        // Use the UUID as filename to match the extract ID
+        const filename = `${extract.id}.json`
+        const filePath = join(extractionsDir, filename)
 
         // Save extract to file
         await fs.writeFile(filePath, JSON.stringify(extract, null, 2))

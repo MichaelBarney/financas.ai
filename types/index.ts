@@ -4,6 +4,13 @@ export interface Bank {
     createdAt: Date
 }
 
+export interface Classification {
+    id: string
+    text: string
+    emoji: string
+    createdAt: Date
+}
+
 export interface Transaction {
     tipo: 'ENTRADA' | 'SAIDA'
     cartao?: string
@@ -13,6 +20,10 @@ export interface Transaction {
     valor: number
     formato?: string
     compraInternacional?: boolean
+    significado?: string
+    classificationId?: string
+    skipped?: boolean
+    skipReason?: string
 }
 
 export interface ExtractResult {
