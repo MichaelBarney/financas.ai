@@ -1,10 +1,8 @@
 <template>
-    <div
-        w-full flex items-center justify-between
-        py-16px px-24px
-        b="b-.5px gray-160"
-    >
-        <h1 text-xl font-semibold>Finanças.ai</h1>
+    <header class="w-full flex items-center justify-between py-4 px-6 bg-white border-b border-gray-200">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-semibold text-gray-900">Finanças.ai</h1>
+        </div>
         
         <TelaButton 
             @click="showUploadModal = true"
@@ -15,7 +13,7 @@
         >
             Adicionar Extrato
         </TelaButton>
-    </div>
+    </header>
 
     <!-- Upload Modal -->
     <ExtractUpload 

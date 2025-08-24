@@ -11,9 +11,18 @@ export interface Classification {
     createdAt: Date
 }
 
+export interface RuleCondition {
+    type: 'includes' | 'day' | 'value'
+    value: string | number
+}
+
 export interface Rule {
     id: string
+    // Legacy field for backward compatibility
     includes: string
+    // New advanced rule structure
+    conditions?: RuleCondition[]
+    logicOperator?: 'AND' | 'OR'
     classificationId?: string
     significado?: string
     consolidar?: boolean

@@ -87,23 +87,63 @@ export function useRules() {
         await saveRules()
     }
 
-    // Find matching rule for a transaction description
-    const findMatchingRule = (description: string): Rule | null => {
-        const normalizedDescription = description.toLowerCase()
+    // Check if a condition matches a transaction
+    const checkCondition = (condition: any, transaction: any): boolean => {
+        const description = typeof transaction.descricao === 'string'
+            ? transaction.descricao
+            : transaction.descricao.nome
 
+        switch (condition.type) {
+            case 'includes':
+                return description.toLowerCase().includes(condition.value.toLowerCase())
+            
+            case 'day':
+                const [day] = transaction.data.split('/')
+                return parseInt(day) === parseInt(condition.value)
+            
+            case 'value':
+                return Math.abs(transaction.valor - parseFloat(condition.value)) < 0.01
+            
+            default:
+                return false
+        }
+    }
+
+    // Find matching rule for a transaction
+    const findMatchingRule = (transaction: any): Rule | null => {
         return rules.value.find((rule) => {
-            const normalizedInclude = rule.includes.toLowerCase()
-            return normalizedDescription.includes(normalizedInclude)
+            // Check if rule uses new conditions structure
+            if (rule.conditions && rule.conditions.length > 0) {
+                const conditionResults = rule.conditions.map(condition => 
+                    checkCondition(condition, transaction)
+                )
+                
+                // Apply logic operator
+                if (rule.logicOperator === 'OR') {
+                    return conditionResults.some(result => result)
+                } else {
+                    // Default to AND
+                    return conditionResults.every(result => result)
+                }
+            }
+            
+            // Fallback to legacy includes matching
+            if (rule.includes) {
+                const description = typeof transaction.descricao === 'string'
+                    ? transaction.descricao
+                    : transaction.descricao.nome
+                const normalizedDescription = description.toLowerCase()
+                const normalizedInclude = rule.includes.toLowerCase()
+                return normalizedDescription.includes(normalizedInclude)
+            }
+            
+            return false
         }) || null
     }
 
     // Auto-apply rules to a transaction
     const applyRules = (transaction: any) => {
-        const description = typeof transaction.descricao === 'string'
-            ? transaction.descricao
-            : transaction.descricao.nome
-
-        const matchingRule = findMatchingRule(description)
+        const matchingRule = findMatchingRule(transaction)
 
         if (matchingRule) {
             return {
