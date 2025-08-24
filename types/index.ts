@@ -11,7 +11,7 @@ export interface Classification {
     createdAt: Date
 }
 
-export interface MemoryRule {
+export interface Rule {
     id: string
     includes: string
     classificationId?: string
@@ -33,8 +33,8 @@ export interface Transaction {
     classificationId?: string
     skipped?: boolean
     skipReason?: string
-    appliedFromMemory?: boolean
-    memoryRuleId?: string
+    appliedFromRule?: boolean
+    ruleId?: string
 }
 
 export interface ExtractResult {

@@ -14,24 +14,24 @@ export default defineEventHandler(async (event) => {
         }
 
         const storageDir = resolve(process.cwd(), 'storage')
-        const memoryPath = resolve(storageDir, 'memory.json')
+        const rulesPath = resolve(storageDir, 'rules.json')
 
         // Create storage directory if it doesn't exist
         if (!existsSync(storageDir)) {
             mkdirSync(storageDir, { recursive: true })
         }
 
-        // Write memory rules to file
-        const memoryData = JSON.stringify({ rules }, null, 2)
-        writeFileSync(memoryPath, memoryData, 'utf-8')
+        // Write rules to file
+        const rulesData = JSON.stringify({ rules }, null, 2)
+        writeFileSync(rulesPath, rulesData, 'utf-8')
 
         return { success: true }
     }
     catch (error) {
-        console.error('Error saving memory rules:', error)
+        console.error('Error saving rules:', error)
         throw createError({
             statusCode: 500,
-            statusMessage: 'Failed to save memory rules',
+            statusMessage: 'Failed to save rules',
         })
     }
 })

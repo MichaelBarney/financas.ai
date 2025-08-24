@@ -1,6 +1,7 @@
 <template>
-  <!-- Investments Section -->
-  <div v-if="investmentTransactions.length > 0" class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg mb-6">
+  <div class="w-full max-w-full overflow-x-hidden">
+    <!-- Investments Section -->
+    <div v-if="investmentTransactions.length > 0" class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg mb-6">
     <div class="px-6 py-4 border-b border-green-200">
       <h2 class="text-xl font-semibold text-green-900 flex items-center gap-2">
         📈 Investimentos
@@ -32,8 +33,8 @@
       </div>
       
       <!-- Investment Transactions Table -->
-      <div class="overflow-x-auto">
-        <table class="w-full">
+      <div class="overflow-x-auto min-w-full">
+        <table class="w-full" style="min-width: 800px;">
           <thead class="bg-green-50">
             <tr>
               <th class="px-4 py-2 text-left text-xs font-medium text-green-700 uppercase tracking-wider">Data</th>
@@ -45,7 +46,7 @@
           <tbody class="bg-white divide-y divide-green-100">
             <tr 
               v-for="(investment, index) in investmentTransactions" 
-              :key="investment.isConsolidated ? `consolidated-inv-${investment.memoryRuleId}` : `inv-${investment.extractId}-${investment.originalIndex}`"
+              :key="investment.isConsolidated ? `consolidated-inv-${investment.ruleId}` : `inv-${investment.extractId}-${investment.originalIndex}`"
               :class="[
                 'hover:bg-green-50 transition-colors cursor-pointer',
                 investment.isConsolidated ? 'bg-gradient-to-r from-green-100 to-emerald-100' : '',
@@ -62,13 +63,13 @@
                     <span v-if="investment.isPartOfConsolidated" class="text-green-400 mr-2">└─</span>
                     {{ investment.significado || getTransactionDescription(investment) }}
                     <span v-if="investment.isConsolidated">
-                      {{ expandedConsolidated.has(investment.memoryRuleId || '') ? '📂' : '📦' }}
+                      {{ expandedConsolidated.has(investment.ruleId || '') ? '📂' : '📦' }}
                     </span>
                   </p>
                   <p v-if="investment.isConsolidated" class="text-xs text-green-600 font-medium">
                     {{ investment.consolidatedCount }} transações - 
                     <span class="text-green-500">
-                      {{ expandedConsolidated.has(investment.memoryRuleId || '') ? 'Clique para recolher' : 'Clique para expandir' }}
+                      {{ expandedConsolidated.has(investment.ruleId || '') ? 'Clique para recolher' : 'Clique para expandir' }}
                     </span>
                   </p>
                 </div>
@@ -248,7 +249,7 @@
         <label class="flex items-center gap-2">
           <TelaCheckbox 
             :model-value="showSkippedTransactions"
-            @update:model-value="(checked) => showSkippedTransactions = checked"
+            @update:model-value="(checked: boolean) => showSkippedTransactions = checked"
             size="md"
           />
           <span class="text-sm text-gray-700">Mostrar transações ignoradas</span>
@@ -259,7 +260,7 @@
         <label class="flex items-center gap-2">
           <TelaCheckbox 
             :model-value="selectedPeopleTypes.includes('Principal')"
-            @update:model-value="(checked) => togglePeopleType('Principal', checked)"
+            @update:model-value="(checked: boolean) => togglePeopleType('Principal', checked)"
             size="md"
           />
           <span class="text-sm text-gray-700">Principal</span>
@@ -268,7 +269,7 @@
         <label class="flex items-center gap-2">
           <TelaCheckbox 
             :model-value="selectedPeopleTypes.includes('Dependente')"
-            @update:model-value="(checked) => togglePeopleType('Dependente', checked)"
+            @update:model-value="(checked: boolean) => togglePeopleType('Dependente', checked)"
             size="md"
           />
           <span class="text-sm text-gray-700">Dependente</span>
@@ -277,7 +278,7 @@
         <label class="flex items-center gap-2">
           <TelaCheckbox 
             :model-value="selectedPeopleTypes.includes('Externo')"
-            @update:model-value="(checked) => togglePeopleType('Externo', checked)"
+            @update:model-value="(checked: boolean) => togglePeopleType('Externo', checked)"
             size="md"
           />
           <span class="text-sm text-gray-700">Externo</span>
@@ -286,7 +287,7 @@
         <label class="flex items-center gap-2">
           <TelaCheckbox 
             :model-value="selectedPeopleTypes.includes('Outro')"
-            @update:model-value="(checked) => togglePeopleType('Outro', checked)"
+            @update:model-value="(checked: boolean) => togglePeopleType('Outro', checked)"
             size="md"
           />
           <span class="text-sm text-gray-700">Outro</span>
@@ -295,8 +296,8 @@
     </div>
 
     <!-- Table -->
-    <div class="overflow-x-auto">
-      <table class="w-full">
+    <div class="overflow-x-auto min-w-full">
+      <table class="w-full" style="min-width: 1200px;">
         <thead class="bg-gray-50">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -328,7 +329,7 @@
         <tbody class="bg-white divide-y divide-gray-200">
           <tr 
             v-for="(transaction, index) in transactionsWithConsolidation" 
-            :key="transaction.isConsolidated ? `consolidated-${transaction.memoryRuleId}` : `${transaction.extractId}-${transaction.originalIndex}`"
+            :key="transaction.isConsolidated ? `consolidated-${transaction.ruleId}` : `${transaction.extractId}-${transaction.originalIndex}`"
             :class="[
               'hover:bg-gray-50 transition-colors cursor-pointer',
               getTransactionRowClasses(transaction)
@@ -351,10 +352,10 @@
                    <span v-if="transaction.isPartOfConsolidated" class="text-purple-400 mr-2">└─</span>
                    {{ transaction.significado }} 
                    <span v-if="transaction.isConsolidated">
-                     {{ expandedConsolidated.has(transaction.memoryRuleId || '') ? '📂' : '📦' }}
+                     {{ expandedConsolidated.has(transaction.ruleId || '') ? '📂' : '📦' }}
                    </span>
                    <span v-else-if="!transaction.isPartOfConsolidated">✨</span>
-                   <span v-if="transaction.appliedFromMemory && !transaction.isConsolidated && !transaction.isPartOfConsolidated" class="text-blue-600 ml-2">🧠</span>
+                   <span v-if="transaction.appliedFromRule && !transaction.isConsolidated && !transaction.isPartOfConsolidated" class="text-blue-600 ml-2">🧠</span>
                 </p>
                 <p v-else class="font-medium" 
                    :class="{
@@ -364,14 +365,14 @@
                   <span v-if="transaction.isPartOfConsolidated" class="text-purple-400 mr-2">└─</span>
                   {{ getTransactionDescription(transaction) }}
                   <span v-if="transaction.isConsolidated">
-                    {{ expandedConsolidated.has(transaction.memoryRuleId || '') ? '📂' : '📦' }}
+                    {{ expandedConsolidated.has(transaction.ruleId || '') ? '📂' : '📦' }}
                   </span>
-                  <span v-if="transaction.appliedFromMemory && !transaction.isConsolidated && !transaction.isPartOfConsolidated" class="text-blue-600 ml-2">🧠</span>
+                  <span v-if="transaction.appliedFromRule && !transaction.isConsolidated && !transaction.isPartOfConsolidated" class="text-blue-600 ml-2">🧠</span>
                 </p>
                 <p v-if="transaction.isConsolidated" class="text-xs text-purple-600 font-medium">
                   {{ transaction.consolidatedCount }} transações - 
                   <span class="text-purple-500">
-                    {{ expandedConsolidated.has(transaction.memoryRuleId || '') ? 'Clique para recolher' : 'Clique para expandir' }}
+                    {{ expandedConsolidated.has(transaction.ruleId || '') ? 'Clique para recolher' : 'Clique para expandir' }}
                   </span>
                 </p>
                 <p v-else-if="!transaction.isPartOfConsolidated && getTransactionAccount(transaction.descricao) && getTransactionAccount(transaction.descricao) !== 'N/A'" class="text-xs text-gray-500">
@@ -461,7 +462,7 @@
                 <span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                   {{ getClassificationText(transaction.classificationId) }}
                 </span>
-                <span v-if="transaction.appliedFromMemory" class="text-xs text-purple-600" title="Aplicado via memória">
+                <span v-if="transaction.appliedFromRule" class="text-xs text-purple-600" title="Aplicado via regra">
                   💾
                 </span>
               </div>
@@ -521,7 +522,7 @@
 
     <!-- Significado Modal -->
     <div v-if="showSignificadoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
+      <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold text-gray-900">
             {{ editingTransaction?.classificationId ? 'Editar Transação' : 'Analisar Transação' }}
@@ -542,14 +543,14 @@
           </div>
         </div>
 
-        <!-- Memory Rule Info Section -->
-        <div v-if="editingTransaction?.appliedFromMemory && editingTransaction?.memoryRuleId" class="mb-4">
-          <p class="text-sm text-gray-600 mb-2">🧠 Regra de Memória Aplicada:</p>
+        <!-- Rule Info Section -->
+        <div v-if="editingTransaction?.appliedFromRule && editingTransaction?.ruleId" class="mb-4">
+          <p class="text-sm text-gray-600 mb-2">🧠 Regra Aplicada:</p>
           <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm font-medium text-blue-900">
-                  Incluir quando contém: <span class="font-normal">{{ getMemoryRuleText(editingTransaction.memoryRuleId) }}</span>
+                  Incluir quando contém: <span class="font-normal">{{ getRuleText(editingTransaction.ruleId) }}</span>
                 </p>
                 <p v-if="editingTransaction.significado" class="text-xs text-blue-700 mt-1">
                   Significado: {{ editingTransaction.significado }}
@@ -559,7 +560,7 @@
                 </p>
               </div>
               <button
-                @click="editMemoryRule(editingTransaction.memoryRuleId)"
+                @click="editRule(editingTransaction.ruleId)"
                 class="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
               >
                 Editar Regra
@@ -602,7 +603,7 @@
             </button>
             
             <div v-if="showAdvancedOptions" class="mt-3 space-y-4" data-advanced-options>
-              <!-- Memory Rule Section -->
+              <!-- Rule Section -->
               <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <h4 class="text-sm font-medium text-blue-900 mb-3">💾 Lembrar esta classificação</h4>
                 <p class="text-xs text-blue-700 mb-3">
@@ -611,12 +612,12 @@
                 
                 <div class="space-y-3">
                   <div>
-                    <label for="memoryIncludes" class="block text-xs font-medium text-blue-800 mb-1">
+                    <label for="ruleIncludes" class="block text-xs font-medium text-blue-800 mb-1">
                       Incluir quando a descrição contiver:
                     </label>
                     <input
-                      id="memoryIncludes"
-                      v-model="memoryIncludes"
+                      id="ruleIncludes"
+                      v-model="ruleIncludes"
                       type="text"
                       class="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Ex: 'NETFLIX', 'UBER', 'IFOOD'"
@@ -627,7 +628,7 @@
                     <div class="flex items-center gap-3">
                       <label class="flex items-center gap-2">
                         <input
-                          v-model="memorySaveClassification"
+                          v-model="ruleSaveClassification"
                           type="checkbox"
                           class="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
                         />
@@ -636,7 +637,7 @@
                       
                       <label class="flex items-center gap-2">
                         <input
-                          v-model="memorySaveSignificado"
+                          v-model="ruleSaveSignificado"
                           type="checkbox"
                           class="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
                         />
@@ -647,28 +648,28 @@
                     <div class="flex items-center gap-2">
                       <label class="flex items-center gap-2">
                         <input
-                          v-model="memoryConsolidar"
+                          v-model="ruleConsolidar"
                           type="checkbox"
                           class="rounded border-blue-300 text-blue-600 focus:ring-blue-500"
-                          :disabled="!memorySaveSignificado"
+                          :disabled="!ruleSaveSignificado"
                         />
-                        <span class="text-xs text-blue-800" :class="{ 'text-gray-400': !memorySaveSignificado }">
+                        <span class="text-xs text-blue-800" :class="{ 'text-gray-400': !ruleSaveSignificado }">
                           Consolidar transações similares
                         </span>
                       </label>
-                      <div v-if="!memorySaveSignificado" class="text-xs text-gray-500">
+                      <div v-if="!ruleSaveSignificado" class="text-xs text-gray-500">
                         (requer significado)
                       </div>
                     </div>
                   </div>
                   
                   <button
-                    v-if="memoryIncludes.trim() && (memorySaveClassification || memorySaveSignificado)"
+                    v-if="ruleIncludes.trim() && (ruleSaveClassification || ruleSaveSignificado)"
                     type="button"
-                    @click="createMemoryRule"
+                    @click="createRule"
                     class="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    {{ editingMemoryRuleId ? '💾 Atualizar Regra de Memória' : '💾 Criar Regra de Memória' }}
+                    {{ editingRuleId ? '💾 Atualizar Regra' : '💾 Criar Regra' }}
                   </button>
                 </div>
               </div>
@@ -798,6 +799,7 @@
     </div>
 
   </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -816,7 +818,7 @@ interface TransactionWithMetadata extends Transaction {
 }
 
 const { extracts, people, cards, classifications, updateTransactionSignificado, updateTransactionClassification, addClassification, skipTransaction } = useFinanceStore()
-const { addMemoryRule, applyMemoryRules, updateMemoryRule } = useMemory()
+const { addRule, applyRules, updateRule } = useRules()
 
 // Month/Year selection
 const currentDate = new Date()
@@ -843,11 +845,11 @@ const skipReason = ref('')
 
 // Advanced options state
 const showAdvancedOptions = ref(false)
-const memoryIncludes = ref('')
-const memorySaveClassification = ref(false)
-const memorySaveSignificado = ref(false)
-const memoryConsolidar = ref(false)
-const editingMemoryRuleId = ref<string | null>(null)
+const ruleIncludes = ref('')
+const ruleSaveClassification = ref(false)
+const ruleSaveSignificado = ref(false)
+const ruleConsolidar = ref(false)
+const editingRuleId = ref<string | null>(null)
 
 // Expanded consolidated transactions state
 const expandedConsolidated = ref<Set<string>>(new Set())
@@ -1031,7 +1033,7 @@ const filteredTransactions = computed(() => {
         }
         
         if (shouldInclude) {
-          // Apply memory rules to the transaction (frontend only, doesn't modify extraction)
+          // Apply rules to the transaction (frontend only, doesn't modify extraction)
           let processedTransaction = {
             ...transaction,
             bankId: extract.bankId,
@@ -1042,15 +1044,15 @@ const filteredTransactions = computed(() => {
           
           // Check if transaction doesn't already have classification/significado from extraction
           if (!processedTransaction.classificationId && !processedTransaction.significado) {
-            const memoryResult = applyMemoryRules(processedTransaction)
-            if (memoryResult) {
-              // Apply memory rules as frontend overlay
+            const ruleResult = applyRules(processedTransaction)
+            if (ruleResult) {
+              // Apply rules as frontend overlay
               processedTransaction = {
                 ...processedTransaction,
-                classificationId: memoryResult.classificationId || processedTransaction.classificationId,
-                significado: memoryResult.significado || processedTransaction.significado,
-                appliedFromMemory: true,
-                memoryRuleId: memoryResult.memoryRuleId
+                classificationId: ruleResult.classificationId || processedTransaction.classificationId,
+                significado: ruleResult.significado || processedTransaction.significado,
+                appliedFromRule: true,
+                ruleId: ruleResult.ruleId
               }
             }
           }
@@ -1221,14 +1223,14 @@ const pieSlices = computed(() => {
 
 // Computed property for transactions with consolidation logic
 const transactionsWithConsolidation = computed(() => {
-  const { memoryRules } = useMemory()
+  const { rules } = useRules()
   const normalTransactions: TransactionWithMetadata[] = []
   const consolidatedGroups: { [key: string]: TransactionWithMetadata[] } = {}
   
   // Separate transactions into normal and consolidated groups
   for (const transaction of filteredTransactions.value) {
-    if (transaction.appliedFromMemory && transaction.memoryRuleId) {
-      const rule = memoryRules.value.find(r => r.id === transaction.memoryRuleId)
+    if (transaction.appliedFromRule && transaction.ruleId) {
+      const rule = rules.value.find(r => r.id === transaction.ruleId)
       if (rule?.consolidar && rule.significado) {
         // Group consolidatable transactions by rule ID
         if (!consolidatedGroups[rule.id]) {
@@ -1246,7 +1248,7 @@ const transactionsWithConsolidation = computed(() => {
   // Create consolidated transactions and handle expansion
   const consolidatedTransactions: TransactionWithMetadata[] = []
   for (const [ruleId, transactions] of Object.entries(consolidatedGroups)) {
-    const rule = memoryRules.value.find(r => r.id === ruleId)
+    const rule = rules.value.find(r => r.id === ruleId)
     if (rule && transactions.length > 0) {
       const isExpanded = expandedConsolidated.value.has(ruleId)
       
@@ -1268,8 +1270,8 @@ const transactionsWithConsolidation = computed(() => {
           significado: `${rule.significado} - Consolidado`,
           valor: Math.abs(totalValue), // Use absolute value since tipo determines sign
           tipo: firstTransaction.tipo, // Use the same tipo as the original transactions
-          appliedFromMemory: true,
-          memoryRuleId: ruleId,
+          appliedFromRule: true,
+          ruleId: ruleId,
           isConsolidated: true,
           consolidatedCount: transactions.length
         }
@@ -1284,7 +1286,7 @@ const transactionsWithConsolidation = computed(() => {
   const filteredConsolidatedTransactions = consolidatedTransactions.filter(t => {
     if (t.isConsolidated) {
       // For consolidated transactions, check if the rule is for investments
-      const rule = memoryRules.value.find(r => r.id === t.memoryRuleId)
+      const rule = rules.value.find(r => r.id === t.ruleId)
       return rule?.classificationId !== '7'
     }
     return t.classificationId !== '7'
@@ -1296,15 +1298,15 @@ const transactionsWithConsolidation = computed(() => {
 
 // Computed property for investment transactions only
 const investmentTransactions = computed(() => {
-  const { memoryRules } = useMemory()
+  const { rules } = useRules()
   const normalInvestments: TransactionWithMetadata[] = []
   const consolidatedInvestmentGroups: { [key: string]: TransactionWithMetadata[] } = {}
   
   // Separate investment transactions into normal and consolidated groups
   for (const transaction of filteredTransactions.value) {
     if (transaction.classificationId === '7') {
-      if (transaction.appliedFromMemory && transaction.memoryRuleId) {
-        const rule = memoryRules.value.find(r => r.id === transaction.memoryRuleId)
+      if (transaction.appliedFromRule && transaction.ruleId) {
+        const rule = rules.value.find(r => r.id === transaction.ruleId)
         if (rule?.consolidar && rule.significado && rule.classificationId === '7') {
           // Group consolidatable investment transactions by rule ID
           if (!consolidatedInvestmentGroups[rule.id]) {
@@ -1323,7 +1325,7 @@ const investmentTransactions = computed(() => {
   // Create consolidated investment transactions and handle expansion
   const consolidatedInvestments: TransactionWithMetadata[] = []
   for (const [ruleId, transactions] of Object.entries(consolidatedInvestmentGroups)) {
-    const rule = memoryRules.value.find(r => r.id === ruleId)
+    const rule = rules.value.find(r => r.id === ruleId)
     if (rule && transactions.length > 0) {
       const isExpanded = expandedConsolidated.value.has(ruleId)
       
@@ -1345,8 +1347,8 @@ const investmentTransactions = computed(() => {
           significado: `${rule.significado} - Consolidado`,
           valor: Math.abs(totalValue),
           tipo: firstTransaction.tipo,
-          appliedFromMemory: true,
-          memoryRuleId: ruleId,
+          appliedFromRule: true,
+          ruleId: ruleId,
           isConsolidated: true,
           consolidatedCount: transactions.length
         }
@@ -1474,9 +1476,9 @@ function formatCurrency(value: number): string {
 
 // Handle transaction clicks
 function handleTransactionClick(transaction: TransactionWithMetadata) {
-  if (transaction.isConsolidated && transaction.memoryRuleId) {
+  if (transaction.isConsolidated && transaction.ruleId) {
     // Toggle expansion for consolidated transactions
-    toggleConsolidatedExpansion(transaction.memoryRuleId)
+    toggleConsolidatedExpansion(transaction.ruleId)
   } else {
     // Open modal for normal transactions
     openSignificadoModal(transaction)
@@ -1503,11 +1505,11 @@ function closeSignificadoModal() {
   
   // Reset advanced options
   showAdvancedOptions.value = false
-  memoryIncludes.value = ''
-  memorySaveClassification.value = false
-  memorySaveSignificado.value = false
-  memoryConsolidar.value = false
-  editingMemoryRuleId.value = null
+  ruleIncludes.value = ''
+  ruleSaveClassification.value = false
+  ruleSaveSignificado.value = false
+  ruleConsolidar.value = false
+  editingRuleId.value = null
 }
 
 function selectClassification(classificationId: string) {
@@ -1533,45 +1535,45 @@ async function createNewClassification() {
   }
 }
 
-async function createMemoryRule() {
-  if (!memoryIncludes.value.trim()) {
-    alert('Por favor, informe o texto para incluir na regra de memória')
+async function createRule() {
+  if (!ruleIncludes.value.trim()) {
+    alert('Por favor, informe o texto para incluir na regra')
     return
   }
   
-  if (!memorySaveClassification.value && !memorySaveSignificado.value) {
+  if (!ruleSaveClassification.value && !ruleSaveSignificado.value) {
     alert('Por favor, selecione pelo menos uma opção para salvar (classificação ou significado)')
     return
   }
   
   try {
     const rule = {
-      includes: memoryIncludes.value.trim(),
-      classificationId: memorySaveClassification.value && selectedClassificationId.value !== 'NEW' ? selectedClassificationId.value : undefined,
-      significado: memorySaveSignificado.value ? newSignificado.value.trim() : undefined,
-      consolidar: memoryConsolidar.value && memorySaveSignificado.value
+      includes: ruleIncludes.value.trim(),
+      classificationId: ruleSaveClassification.value && selectedClassificationId.value !== 'NEW' ? selectedClassificationId.value : undefined,
+      significado: ruleSaveSignificado.value ? newSignificado.value.trim() : undefined,
+      consolidar: ruleConsolidar.value && ruleSaveSignificado.value
     }
     
-    if (editingMemoryRuleId.value) {
+    if (editingRuleId.value) {
       // Update existing rule
-      await updateMemoryRule(editingMemoryRuleId.value, rule)
-      alert('Regra de memória atualizada com sucesso!')
+      await updateRule(editingRuleId.value, rule)
+      alert('Regra atualizada com sucesso!')
     } else {
       // Create new rule
-      await addMemoryRule(rule)
-      alert('Regra de memória criada com sucesso! Agora transações similares serão classificadas automaticamente.')
+      await addRule(rule)
+      alert('Regra criada com sucesso! Agora transações similares serão classificadas automaticamente.')
     }
     
-    // Clear memory form
-    memoryIncludes.value = ''
-    memorySaveClassification.value = false
-    memorySaveSignificado.value = false
-    memoryConsolidar.value = false
-    editingMemoryRuleId.value = null
+    // Clear rule form
+    ruleIncludes.value = ''
+    ruleSaveClassification.value = false
+    ruleSaveSignificado.value = false
+    ruleConsolidar.value = false
+    editingRuleId.value = null
     
   } catch (error) {
-    console.error('Error creating/updating memory rule:', error)
-    alert('Erro ao criar/atualizar regra de memória')
+    console.error('Error creating/updating rule:', error)
+    alert('Erro ao criar/atualizar regra')
   }
 }
 
@@ -1643,7 +1645,7 @@ async function saveSignificado() {
     // Save classification (required)
     await updateTransactionClassification(editingTransaction.value.extractId, transactionIndex, selectedClassificationId.value)
     
-    // Apply memory rules to other unclassified transactions
+    // Apply rules to other unclassified transactions
     // This function is removed as per the edit hint.
     
     closeSignificadoModal()
@@ -1783,19 +1785,19 @@ onMounted(() => {
   }
 })
 
-// Helper function to get memory rule text by ID
-function getMemoryRuleText(memoryRuleId: string): string {
-  const { memoryRules } = useMemory()
-  const rule = memoryRules.value.find(r => r.id === memoryRuleId)
+// Helper function to get rule text by ID
+function getRuleText(ruleId: string): string {
+  const { rules } = useRules()
+  const rule = rules.value.find(r => r.id === ruleId)
   return rule ? rule.includes : 'Regra não encontrada'
 }
 
 // Function to toggle expansion of consolidated transactions
-function toggleConsolidatedExpansion(memoryRuleId: string) {
-  if (expandedConsolidated.value.has(memoryRuleId)) {
-    expandedConsolidated.value.delete(memoryRuleId)
+function toggleConsolidatedExpansion(ruleId: string) {
+  if (expandedConsolidated.value.has(ruleId)) {
+    expandedConsolidated.value.delete(ruleId)
   } else {
-    expandedConsolidated.value.add(memoryRuleId)
+    expandedConsolidated.value.add(ruleId)
   }
 }
 
@@ -1823,17 +1825,17 @@ function getCategoryColor(categoryId: string, index: number): string {
   return colors[index % colors.length]
 }
 
-// Function to edit memory rule
-function editMemoryRule(memoryRuleId: string) {
-  const { memoryRules, updateMemoryRule } = useMemory()
-  const rule = memoryRules.value.find(r => r.id === memoryRuleId)
+// Function to edit rule
+function editRule(ruleId: string) {
+  const { rules, updateRule } = useRules()
+  const rule = rules.value.find(r => r.id === ruleId)
   
   if (rule) {
     // Pre-fill the advanced options with the current rule
-    memoryIncludes.value = rule.includes
-    memorySaveClassification.value = !!rule.classificationId
-    memorySaveSignificado.value = !!rule.significado
-    memoryConsolidar.value = !!rule.consolidar
+    ruleIncludes.value = rule.includes
+    ruleSaveClassification.value = !!rule.classificationId
+    ruleSaveSignificado.value = !!rule.significado
+    ruleConsolidar.value = !!rule.consolidar
     
     // Also pre-fill the main form fields if they match the rule
     if (rule.classificationId && rule.classificationId === selectedClassificationId.value) {
@@ -1849,7 +1851,7 @@ function editMemoryRule(memoryRuleId: string) {
     }
     
     // Set the editing ID
-    editingMemoryRuleId.value = memoryRuleId
+    editingRuleId.value = ruleId
     
     // Show advanced options
     showAdvancedOptions.value = true

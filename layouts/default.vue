@@ -1,11 +1,11 @@
 <template>
-    <div class="w-screen h-screen overflow-x-hidden">
+    <div class="min-h-screen overflow-x-hidden">
         <AppHeader />
-        <div class="flex">
-            <AppSidebar />
-            <main class="flex-1 ml-64 p-6">
+        <AppSidebar />
+        <main class="ml-64 p-6 min-h-screen overflow-x-auto">
+            <div class="max-w-full">
                 <NuxtPage />
-            </main>
-        </div>
+            </div>
+        </main>
     </div>
 </template>
